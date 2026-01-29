@@ -1,0 +1,327 @@
+{% extends "hirelens_app/base.html" %}
+
+{% block content %}
+<style>
+    /* Chat Container Styles */
+    .chat-container {
+        height: 65vh;
+        overflow-y: auto;
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid #e9ecef;
+    }
+    .message {
+        max-width: 80%;
+        margin-bottom: 15px;
+        padding: 12px 16px;
+        border-radius: 12px;
+        position: relative;
+        animation: fadeIn 0.3s ease;
+    }
+    .message.ai {
+        background: white;
+        color: #333;
+        border-bottom-left-radius: 2px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        align-self: flex-start;
+    }
+    .message.candidate {
+        background: var(--primary);
+        color: white;
+        border-bottom-right-radius: 2px;
+        margin-left: auto;
+    }
+    
+    /* Dynamic Microphone Button */
+    .mic-btn {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        font-size: 1.5rem;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        border: 2px solid #e2e8f0;
+    }
+    .mic-btn:hover { transform: scale(1.05); }
+    
+    /* Listening State (Red Pulse) */
+    .mic-btn.listening {
+        background-color: #ef4444 !important;
+        color: white !important;
+        border-color: #ef4444 !important;
+        animation: pulse-red 1.5s infinite;
+    }
+    @keyframes pulse-red {
+        0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+        70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+
+    /* Processing State (Yellow Pulse - Waiting for Silence Timer) */
+    .mic-btn.waiting {
+        background-color: #f59e0b !important;
+        color: white !important;
+        border-color: #f59e0b !important;
+        animation: pulse-yellow 1.5s infinite;
+    }
+    @keyframes pulse-yellow {
+        0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    }
+
+    .typing-dot {
+        display: inline-block; width: 6px; height: 6px;
+        background-color: #adb5bd; border-radius: 50%;
+        margin: 0 2px; animation: typing 1.4s infinite ease-in-out both;
+    }
+    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+    @keyframes typing { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+</style>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h4 class="mb-0 fw-bold text-primary"><i class="fas fa-robot me-2"></i>AI Interviewer</h4>
+            <small class="text-muted">Live Session • Topic: <strong>{{ session.analysis.job.job_title }}</strong></small>
+        </div>
+        <div>
+            <span class="badge bg-light text-dark border me-2" id="connection-status">
+                <i class="fas fa-clock text-warning me-1"></i> 4s Silence Auto-Send
+            </span>
+            <a href="{% url 'analysis_result' session.analysis.id %}" class="btn btn-outline-danger btn-sm">End Session</a>
+        </div>
+    </div>
+
+    <div class="chat-container d-flex flex-column" id="chat-box">
+        {% for msg in session.chatmessage_set.all %}
+            <div class="message {% if msg.sender == 'ai' %}ai{% else %}candidate{% endif %}">
+                <strong>{% if msg.sender == 'ai' %}🤖 AI{% else %}👤 You{% endif %}:</strong><br>
+                {{ msg.message_text }}
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="card mt-3 border-0 shadow-sm">
+        <div class="card-body p-3">
+            <div class="d-flex align-items-center gap-3">
+                <button id="mic-btn" class="btn btn-light mic-btn" title="Start/Stop">
+                    <i class="fas fa-microphone"></i>
+                </button>
+
+                <input type="text" id="user-input" class="form-control border-0 bg-light rounded-pill px-4" 
+                       placeholder="Speaking... (Wait 4s to send automatically)" style="height: 50px;">
+                
+                <button id="send-btn" class="btn btn-primary rounded-circle" style="width: 50px; height: 50px;">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="status-text" class="text-center mt-3 fw-medium text-muted">
+        Click the microphone to start. I will wait 4 seconds after you stop speaking before replying.
+    </div>
+</div>
+
+<script>
+    const sessionId = "{{ session.id }}";
+    const chatBox = document.getElementById('chat-box');
+    const userInput = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+    const micBtn = document.getElementById('mic-btn');
+    const statusText = document.getElementById('status-text');
+
+    let isRecording = false;
+    let silenceTimer = null;
+    let finalTranscript = ''; 
+    const SILENCE_TIMEOUT = 4000; // 4 Seconds Wait Time
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    // ==========================================
+    // 1. ADVANCED SPEECH RECOGNITION (Continuous)
+    // ==========================================
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition;
+
+    if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.continuous = true; // 🔥 KEY FIX: Don't stop on pause!
+        recognition.interimResults = true; // Show words as I speak
+        recognition.lang = 'en-US';
+
+        micBtn.addEventListener('click', toggleRecording);
+
+        recognition.onstart = () => {
+            isRecording = true;
+            updateMicUI('listening');
+            statusText.innerText = "Listening... Take your time thinking.";
+        };
+
+        recognition.onend = () => {
+            // If the browser forces a stop but we wanted to keep recording, restart it.
+            // Unless we are actively sending a message.
+            if (isRecording) {
+                try { recognition.start(); } catch(e) {}
+            } else {
+                updateMicUI('idle');
+            }
+        };
+
+        recognition.onresult = (event) => {
+            // Combine all results
+            let interimTranscript = '';
+            
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    finalTranscript += event.results[i][0].transcript + ' ';
+                } else {
+                    interimTranscript += event.results[i][0].transcript;
+                }
+            }
+
+            // Update Input Box Visuals
+            userInput.value = finalTranscript + interimTranscript;
+
+            // 🔥 RESET SILENCE TIMER
+            // Every time you say a word, we reset the countdown.
+            updateMicUI('waiting'); 
+            clearTimeout(silenceTimer);
+            
+            statusText.innerHTML = '<span class="text-warning fw-bold">...Waiting for 4s silence to send...</span>';
+
+            silenceTimer = setTimeout(() => {
+                // If this runs, it means you haven't spoken for 4 seconds
+                submitMessage();
+            }, SILENCE_TIMEOUT);
+        };
+
+        recognition.onerror = (event) => {
+            console.error("Speech Error:", event.error);
+            if(event.error !== 'no-speech') stopRecording();
+        };
+
+    } else {
+        micBtn.style.display = 'none';
+        statusText.innerText = "Voice input not supported.";
+    }
+
+    // ==========================================
+    // 2. LOGIC CONTROLLERS
+    // ==========================================
+    function toggleRecording() {
+        if (isRecording) {
+            stopRecording();
+            submitMessage(); // Send whatever we have immediately
+        } else {
+            finalTranscript = ''; // Reset buffer
+            userInput.value = '';
+            recognition.start();
+        }
+    }
+
+    function stopRecording() {
+        isRecording = false;
+        clearTimeout(silenceTimer);
+        recognition.stop();
+        updateMicUI('idle');
+    }
+
+    function updateMicUI(state) {
+        micBtn.classList.remove('listening', 'waiting', 'btn-light');
+        if (state === 'listening') {
+            micBtn.classList.add('listening');
+        } else if (state === 'waiting') {
+            micBtn.classList.add('waiting'); // Yellow pulse (Timer active)
+        } else {
+            micBtn.classList.add('btn-light'); // Idle
+            statusText.innerText = "Click microphone to start";
+        }
+    }
+
+    // ==========================================
+    // 3. AI VOICE OUTPUT
+    // ==========================================
+    function speakText(text) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        
+        utterance.onstart = () => {
+            statusText.innerHTML = '<span class="text-primary fw-bold">AI is speaking...</span>';
+        };
+
+        utterance.onend = () => {
+            // Auto-restart listening after AI finishes
+            statusText.innerText = "My turn finished. Listening for you...";
+            finalTranscript = ''; 
+            userInput.value = '';
+            try { recognition.start(); } catch(e) {}
+        };
+
+        window.speechSynthesis.speak(utterance);
+    }
+
+    // ==========================================
+    // 4. SUBMIT MESSAGE
+    // ==========================================
+    async function submitMessage() {
+        // Stop recording while we process
+        isRecording = false;
+        recognition.stop();
+        clearTimeout(silenceTimer);
+
+        const text = userInput.value.trim();
+        if (!text) return;
+
+        // UI Updates
+        appendMessage('candidate', text);
+        userInput.value = '';
+        statusText.innerText = "AI is thinking...";
+
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'message ai text-muted fst-italic';
+        typingDiv.id = 'typing-indicator';
+        typingDiv.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+        chatBox.appendChild(typingDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        try {
+            const response = await fetch("{% url 'api_chat_interaction' %}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token }}" },
+                body: JSON.stringify({ session_id: sessionId, message: text })
+            });
+            
+            const data = await response.json();
+            if (document.getElementById('typing-indicator')) document.getElementById('typing-indicator').remove();
+
+            if (data.status === 'success') {
+                appendMessage('ai', data.ai_response);
+                speakText(data.ai_response); // Triggers loop on end
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+    function appendMessage(sender, text) {
+        const div = document.createElement('div');
+        div.className = `message ${sender}`;
+        div.innerHTML = `<strong>${sender === 'ai' ? '🤖 AI' : '👤 You'}:</strong><br>${text}`;
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // Manual Send
+    sendBtn.addEventListener('click', submitMessage);
+    userInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') submitMessage();
+    });
+</script>
+{% endblock %}

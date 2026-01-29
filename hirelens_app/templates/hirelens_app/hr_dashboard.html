@@ -1,0 +1,500 @@
+{% extends "hirelens_app/base.html" %}
+
+{% block title %}HR Dashboard - HireLens AI{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Dashboard-specific enhancements */
+    .stat-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+    
+    .stat-card.primary { border-left-color: var(--primary); }
+    .stat-card.success { border-left-color: var(--success); }
+    .stat-card.warning { border-left-color: var(--warning); }
+    .stat-card.info { border-left-color: #3b82f6; }
+    
+    .company-banner {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: var(--radius);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .company-banner::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 300px;
+        height: 300px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        transform: translate(50%, -50%);
+    }
+    
+    .job-card {
+        transition: all 0.3s ease;
+        border: 1px solid #e2e8f0;
+        border-radius: var(--radius);
+        background: white;
+    }
+    
+    .job-card:hover {
+        border-color: var(--primary);
+        box-shadow: 0 8px 16px rgba(37, 99, 235, 0.1);
+        transform: translateY(-2px);
+    }
+    
+    .badge-experience {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        border-radius: 6px;
+    }
+    
+    .empty-state {
+        padding: 4rem 2rem;
+    }
+    
+    .empty-state-icon {
+        width: 120px;
+        height: 120px;
+        margin: 0 auto 2rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.9;
+    }
+    
+    .action-btn-group {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    @media (max-width: 768px) {
+        .action-btn-group {
+            flex-direction: column;
+        }
+        
+        .action-btn-group .btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block page_header %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+    <div>
+        <h2 class="mb-2">
+            <i class="bi bi-speedometer2 text-primary me-2"></i>HR Dashboard
+        </h2>
+        <p class="text-muted mb-0">Manage your company requirements and hiring pipeline</p>
+    </div>
+    
+    <div class="d-flex gap-2">
+        <a href="{% url 'job_requirement' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i> New Job
+        </a>
+        <form action="{% url 'logout' %}" method="post" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-secondary">
+                <i class="bi bi-box-arrow-right me-2"></i>Logout
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- Company Profile Banner -->
+<div class="company-banner text-white p-4 mb-4 shadow-sm position-relative">
+    <div class="row align-items-center position-relative" style="z-index: 1;">
+        <div class="col-md-8 mb-3 mb-md-0">
+            <div class="d-flex align-items-center mb-2">
+                <div class="bg-white bg-opacity-25 rounded-circle p-3 me-3">
+                    <i class="bi bi-building" style="font-size: 2rem;"></i>
+                </div>
+                <div>
+                    <p class="mb-1 opacity-75 small text-uppercase fw-semibold">Company Profile</p>
+                    <h3 class="mb-0 fw-bold">{{ request.user.hrprofile.company_name }}</h3>
+                </div>
+            </div>
+            <p class="mb-0 opacity-90">
+                <i class="bi bi-person-circle me-2"></i>
+                Logged in as <strong>{{ request.user.username }}</strong>
+            </p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <div class="d-inline-block text-center bg-white bg-opacity-25 rounded p-3">
+                <div class="display-4 fw-bold">{{ jobs.count }}</div>
+                <div class="small text-uppercase fw-semibold opacity-90">Active Jobs</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3 col-sm-6">
+        <div class="card stat-card primary border-0 h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <p class="text-muted mb-1 small fw-semibold text-uppercase">Total Jobs</p>
+                        <h3 class="mb-0 fw-bold">{{ jobs.count }}</h3>
+                    </div>
+                    <div class="bg-primary bg-opacity-10 p-3 rounded">
+                        <i class="bi bi-briefcase text-primary" style="font-size: 1.5rem;"></i>
+                    </div>
+                </div>
+                <small class="text-success">
+                    <i class="bi bi-arrow-up me-1"></i> Active positions
+                </small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-sm-6">
+        <div class="card stat-card success border-0 h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <p class="text-muted mb-1 small fw-semibold text-uppercase">This Month</p>
+                        <h3 class="mb-0 fw-bold">{{ jobs_this_month|default:jobs.count }}</h3>
+                    </div>
+                    <div class="bg-success bg-opacity-10 p-3 rounded">
+                        <i class="bi bi-calendar-check text-success" style="font-size: 1.5rem;"></i>
+                    </div>
+                </div>
+                <small class="text-muted">
+                    <i class="bi bi-dash me-1"></i> Posted recently
+                </small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-sm-6">
+        <div class="card stat-card warning border-0 h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <p class="text-muted mb-1 small fw-semibold text-uppercase">Candidates</p>
+                        <h3 class="mb-0 fw-bold">{{ total_candidates|default:0 }}</h3>
+                    </div>
+                    <div class="bg-warning bg-opacity-10 p-3 rounded">
+                        <i class="bi bi-people text-warning" style="font-size: 1.5rem;"></i>
+                    </div>
+                </div>
+                <small class="text-muted">
+                    <i class="bi bi-dash me-1"></i> In pipeline
+                </small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-sm-6">
+        <div class="card stat-card info border-0 h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <p class="text-muted mb-1 small fw-semibold text-uppercase">Interviews</p>
+                        <h3 class="mb-0 fw-bold">{{ total_interviews|default:0 }}</h3>
+                    </div>
+                    <div class="bg-info bg-opacity-10 p-3 rounded">
+                        <i class="bi bi-calendar-event text-info" style="font-size: 1.5rem;"></i>
+                    </div>
+                </div>
+                <small class="text-muted">
+                    <i class="bi bi-dash me-1"></i> Scheduled
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Job Requirements Section -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-bottom py-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold">
+                <i class="bi bi-briefcase text-primary me-2"></i>Your Job Requirements
+            </h5>
+            <a href="{% url 'job_requirement' %}" class="btn btn-sm btn-primary">
+                <i class="bi bi-plus-circle me-1"></i> Add New Job
+            </a>
+        </div>
+    </div>
+    
+    <div class="card-body p-0">
+        {% if jobs %}
+        
+        <!-- Desktop Table View -->
+        <div class="table-responsive d-none d-lg-block">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4 py-3 fw-semibold text-uppercase small">Job Title</th>
+                        <th class="py-3 fw-semibold text-uppercase small">Required Skills</th>
+                        <th class="py-3 text-center fw-semibold text-uppercase small">Candidates</th>
+                        <th class="py-3 text-center fw-semibold text-uppercase small">Avg Score</th>
+                        <th class="py-3 text-center fw-semibold text-uppercase small">Experience</th>
+                        <th class="py-3 text-center fw-semibold text-uppercase small">Posted Date</th>
+                        <th class="pe-4 py-3 text-end fw-semibold text-uppercase small">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for job in jobs %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-primary bg-opacity-10 rounded p-2 me-3">
+                                    <i class="bi bi-briefcase text-primary"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-dark">{{ job.job_title }}</div>
+                                    <small class="text-muted">
+                                        <i class="bi bi-clock me-1"></i>{{ job.created_at|timesince }} ago
+                                    </small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="max-width: 250px;">
+                                {% if job.required_skills|length > 50 %}
+                                    <span class="text-secondary">{{ job.required_skills|truncatechars:50 }}</span>
+                                    <button class="btn btn-link btn-sm p-0 ms-1 text-decoration-none" 
+                                            data-bs-toggle="tooltip" 
+                                            title="{{ job.required_skills }}">
+                                        <small>View all</small>
+                                    </button>
+                                {% else %}
+                                    <span class="text-secondary">{{ job.required_skills }}</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-info bg-opacity-10 text-info border border-info">
+                                <i class="bi bi-people me-1"></i>{{ job.candidate_count|default:0 }}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            {% if job.avg_score %}
+                                <div class="d-flex align-items-center justify-content-center">
+                                    <div class="progress me-2" style="width: 80px; height: 8px;">
+                                        <div class="progress-bar {% if job.avg_score > 70 %}bg-success{% elif job.avg_score > 40 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                             role="progressbar" 
+                                             style="width: {{ job.avg_score|floatformat:0 }}%;"
+                                             aria-valuenow="{{ job.avg_score|floatformat:0 }}"
+                                             aria-valuemin="0"
+                                             aria-valuemax="100"></div>
+                                    </div>
+                                    <small class="fw-bold text-muted">{{ job.avg_score|floatformat:0 }}%</small>
+                                </div>
+                            {% else %}
+                                <small class="text-muted fst-italic">N/A</small>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <span class="badge badge-experience" style="background-color: #eff6ff; color: var(--primary);">
+                                <i class="bi bi-award me-1"></i>{{ job.minimum_experience }} Years
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <div class="text-muted small">
+                                <i class="bi bi-calendar3 me-1"></i>{{ job.created_at|date:"M d, Y" }}
+                            </div>
+                        </td>
+                        <td class="pe-4">
+                            <div class="d-flex gap-2 justify-content-end">
+                                <a href="{% url 'view_candidates' job.id %}" 
+                                   class="btn btn-sm btn-outline-primary"
+                                   data-bs-toggle="tooltip"
+                                   title="View all candidates">
+                                    <i class="bi bi-people me-1"></i> View
+                                </a>
+                                <a href="{% url 'upload_resume' %}?job_id={{ job.id }}" 
+                                   class="btn btn-sm btn-primary"
+                                   data-bs-toggle="tooltip"
+                                   title="Upload candidate resume">
+                                    <i class="bi bi-cloud-upload me-1"></i> Upload
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Mobile Card View -->
+        <div class="d-lg-none p-3">
+            {% for job in jobs %}
+            <div class="job-card p-3 mb-3">
+                <div class="d-flex align-items-start mb-3">
+                    <div class="bg-primary bg-opacity-10 rounded p-2 me-3">
+                        <i class="bi bi-briefcase text-primary" style="font-size: 1.5rem;"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="fw-bold mb-1">{{ job.job_title }}</h6>
+                        <small class="text-muted">
+                            <i class="bi bi-clock me-1"></i>Posted {{ job.created_at|timesince }} ago
+                        </small>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <p class="small text-muted mb-1 fw-semibold">Required Skills:</p>
+                    <p class="small text-secondary mb-0">{{ job.required_skills|truncatechars:80 }}</p>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <small class="text-muted d-block">Candidates</small>
+                        <span class="badge bg-info bg-opacity-10 text-info border border-info">
+                            {{ job.candidate_count|default:0 }}
+                        </span>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted d-block">Avg Score</small>
+                        {% if job.avg_score %}
+                            <span class="fw-bold {% if job.avg_score > 70 %}text-success{% elif job.avg_score > 40 %}text-warning{% else %}text-danger{% endif %}">
+                                {{ job.avg_score|floatformat:0 }}%
+                            </span>
+                        {% else %}
+                            <small class="text-muted fst-italic">N/A</small>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <small class="text-muted d-block">Experience Required</small>
+                        <span class="badge badge-experience" style="background-color: #eff6ff; color: var(--primary);">
+                            {{ job.minimum_experience }} Years
+                        </span>
+                    </div>
+                    <div class="text-end">
+                        <small class="text-muted d-block">Posted On</small>
+                        <small class="fw-semibold">{{ job.created_at|date:"M d, Y" }}</small>
+                    </div>
+                </div>
+                
+                <div class="action-btn-group">
+                    <a href="{% url 'view_candidates' job.id %}" class="btn btn-outline-primary btn-sm flex-grow-1">
+                        <i class="bi bi-people me-1"></i> View Candidates
+                    </a>
+                    <a href="{% url 'upload_resume' %}?job_id={{ job.id }}" class="btn btn-primary btn-sm flex-grow-1">
+                        <i class="bi bi-cloud-upload me-1"></i> Upload
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        {% else %}
+        
+        <!-- Empty State -->
+        <div class="empty-state text-center">
+            <div class="empty-state-icon">
+                <i class="bi bi-briefcase text-white" style="font-size: 3rem;"></i>
+            </div>
+            <h4 class="fw-bold mb-3">No Job Requirements Yet</h4>
+            <p class="text-muted mb-4 mx-auto" style="max-width: 500px;">
+                Start building your talent pipeline by creating your first job requirement. 
+                Our AI will help you screen and match the best candidates.
+            </p>
+            <a href="{% url 'job_requirement' %}" class="btn btn-primary btn-lg">
+                <i class="bi bi-plus-circle me-2"></i> Create Your First Job
+            </a>
+        </div>
+        
+        {% endif %}
+    </div>
+</div>
+
+<!-- Quick Actions Section -->
+{% if jobs %}
+<div class="row g-3 mt-4">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center p-4">
+                <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" 
+                     style="width: 60px; height: 60px;">
+                    <i class="bi bi-cloud-upload text-primary" style="font-size: 1.75rem;"></i>
+                </div>
+                <h6 class="fw-bold mb-2">Upload Resume</h6>
+                <p class="text-muted small mb-3">Add candidates for AI-powered screening</p>
+                <a href="{% url 'upload_resume' %}" class="btn btn-outline-primary btn-sm">
+                    Get Started <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center p-4">
+                <div class="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" 
+                     style="width: 60px; height: 60px;">
+                    <i class="bi bi-graph-up text-success" style="font-size: 1.75rem;"></i>
+                </div>
+                <h6 class="fw-bold mb-2">View Analytics</h6>
+                <p class="text-muted small mb-3">Track hiring performance metrics</p>
+                <button class="btn btn-outline-success btn-sm" disabled>
+                    Coming Soon <i class="bi bi-arrow-right ms-1"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center p-4">
+                <div class="bg-warning bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" 
+                     style="width: 60px; height: 60px;">
+                    <i class="bi bi-gear text-warning" style="font-size: 1.5rem;"></i>
+                </div>
+                <h6 class="fw-bold mb-2">Settings</h6>
+                <p class="text-muted small mb-3">Customize your hiring preferences</p>
+                <button class="btn btn-outline-warning btn-sm" disabled>
+                    Configure <i class="bi bi-arrow-right ms-1"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialize Bootstrap tooltips
+    document.addEventListener('DOMContentLoaded', function() {
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function(tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        
+        // Add active state to current page
+        const currentPath = window.location.pathname;
+        document.querySelectorAll('.nav-link').forEach(link => {
+            if (link.getAttribute('href') === currentPath) {
+                link.classList.add('active');
+            }
+        });
+    });
+</script>
+{% endblock %}

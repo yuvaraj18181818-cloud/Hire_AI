@@ -1,0 +1,822 @@
+{% extends "hirelens_app/base.html" %}
+
+{% block title %}Skill Improvement Plan - HireLens AI{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --gradient-success: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        --gradient-info: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+        --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+        --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --shadow-medium: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        --shadow-large: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+    }
+
+    .plan-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+
+    /* Page Header */
+    .page-header {
+        background: white;
+        border-radius: 20px;
+        padding: 3rem 2rem;
+        margin-bottom: 3rem;
+        box-shadow: var(--shadow-medium);
+        position: relative;
+        overflow: hidden;
+        animation: fadeInDown 0.6s ease-out;
+    }
+
+    .page-header::before {
+        content: '';
+        position: absolute;
+        top: -50px;
+        right: -50px;
+        width: 300px;
+        height: 300px;
+        background: var(--gradient-primary);
+        opacity: 0.05;
+        border-radius: 50%;
+    }
+
+    .header-content {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+    }
+
+    .header-icon {
+        width: 100px;
+        height: 100px;
+        background: var(--gradient-success);
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+        color: white;
+        box-shadow: var(--shadow-medium);
+        flex-shrink: 0;
+        animation: bounceIn 0.8s ease-out;
+    }
+
+    .header-text h1 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        background: var(--gradient-primary);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 0.5rem;
+    }
+
+    .header-text p {
+        color: #64748b;
+        font-size: 1.1rem;
+        margin: 0;
+    }
+
+    /* Stats Cards */
+    .stats-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 3rem;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: var(--shadow-soft);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        animation: fadeInUp 0.6s ease-out backwards;
+    }
+
+    .stat-card:nth-child(1) { animation-delay: 0.1s; }
+    .stat-card:nth-child(2) { animation-delay: 0.2s; }
+    .stat-card:nth-child(3) { animation-delay: 0.3s; }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        transition: width 0.3s ease;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-8px);
+        box-shadow: var(--shadow-large);
+    }
+
+    .stat-card:hover::before {
+        width: 8px;
+    }
+
+    .stat-card.primary::before {
+        background: var(--gradient-primary);
+    }
+
+    .stat-card.success::before {
+        background: var(--gradient-success);
+    }
+
+    .stat-card.info::before {
+        background: var(--gradient-info);
+    }
+
+    .stat-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.75rem;
+        margin-bottom: 1rem;
+        color: white;
+    }
+
+    .stat-card.primary .stat-icon {
+        background: var(--gradient-primary);
+    }
+
+    .stat-card.success .stat-icon {
+        background: var(--gradient-success);
+    }
+
+    .stat-card.info .stat-icon {
+        background: var(--gradient-info);
+    }
+
+    .stat-label {
+        font-size: 0.875rem;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #1e293b;
+    }
+
+    /* Plan Card */
+    .plan-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: var(--shadow-medium);
+        overflow: hidden;
+        margin-bottom: 2rem;
+        animation: fadeInUp 0.6s ease-out 0.4s backwards;
+    }
+
+    .plan-header {
+        background: var(--gradient-primary);
+        padding: 2rem;
+        color: white;
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+    }
+
+    .plan-header-icon {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.75rem;
+        backdrop-filter: blur(10px);
+    }
+
+    .plan-header h3 {
+        margin: 0;
+        font-size: 1.75rem;
+        font-weight: 700;
+    }
+
+    .plan-content {
+        padding: 3rem;
+    }
+
+    /* Enhanced Pre Formatting */
+    .plan-text {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border-radius: 16px;
+        padding: 2.5rem;
+        border-left: 4px solid #667eea;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-size: 1rem;
+        line-height: 1.8;
+        color: #334155;
+        margin: 0;
+        overflow-x: auto;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+    }
+
+    /* Styled Plan Text */
+    .plan-text-formatted {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border-radius: 16px;
+        padding: 2.5rem;
+        border-left: 4px solid #667eea;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-size: 1rem;
+        line-height: 1.8;
+        color: #334155;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+    }
+
+    .plan-text-formatted h4 {
+        color: #1e293b;
+        font-weight: 700;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .plan-text-formatted h4:first-child {
+        margin-top: 0;
+    }
+
+    .plan-text-formatted h4 i {
+        color: #667eea;
+        font-size: 1.25rem;
+    }
+
+    .plan-text-formatted ul {
+        list-style: none;
+        padding-left: 0;
+        margin: 1rem 0;
+    }
+
+    .plan-text-formatted ul li {
+        position: relative;
+        padding-left: 2rem;
+        margin-bottom: 0.75rem;
+        line-height: 1.6;
+    }
+
+    .plan-text-formatted ul li::before {
+        content: '✓';
+        position: absolute;
+        left: 0;
+        color: #10b981;
+        font-weight: 700;
+        font-size: 1.25rem;
+    }
+
+    .plan-text-formatted strong {
+        color: #1e293b;
+        font-weight: 700;
+    }
+
+    .plan-text-formatted p {
+        margin-bottom: 1rem;
+    }
+
+    /* Action Section */
+    .action-section {
+        background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-top: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 2rem;
+        flex-wrap: wrap;
+        animation: fadeInUp 0.6s ease-out 0.5s backwards;
+    }
+
+    .action-text {
+        flex: 1;
+        min-width: 250px;
+    }
+
+    .action-text h4 {
+        color: #0c4a6e;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        font-size: 1.25rem;
+    }
+
+    .action-text p {
+        color: #075985;
+        margin: 0;
+        font-size: 1rem;
+    }
+
+    .action-btn {
+        padding: 1.25rem 2.5rem;
+        background: var(--gradient-primary);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 1.125rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--shadow-medium);
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .action-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.3);
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+    }
+
+    .action-btn:hover::before {
+        width: 300px;
+        height: 300px;
+    }
+
+    .action-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-large);
+        color: white;
+    }
+
+    .action-btn i {
+        transition: transform 0.3s ease;
+    }
+
+    .action-btn:hover i {
+        transform: translateX(5px);
+    }
+
+    /* Tips Card */
+    .tips-card {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        border-left: 4px solid #f59e0b;
+        box-shadow: var(--shadow-soft);
+        animation: fadeInUp 0.6s ease-out 0.6s backwards;
+    }
+
+    .tips-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .tips-icon {
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+    }
+
+    .tips-header h4 {
+        color: #78350f;
+        font-weight: 700;
+        margin: 0;
+        font-size: 1.25rem;
+    }
+
+    .tips-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .tips-list li {
+        padding: 0.75rem 0;
+        color: #92400e;
+        display: flex;
+        align-items: start;
+        gap: 1rem;
+        font-size: 0.95rem;
+        line-height: 1.6;
+    }
+
+    .tips-list li i {
+        color: #f59e0b;
+        margin-top: 0.25rem;
+        flex-shrink: 0;
+    }
+
+    /* Print Button */
+    .print-btn {
+        background: white;
+        color: #667eea;
+        border: 2px solid #667eea;
+        padding: 1rem 2rem;
+        border-radius: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        text-decoration: none;
+        margin-right: 1rem;
+    }
+
+    .print-btn:hover {
+        background: #667eea;
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-soft);
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .plan-container {
+            padding: 1rem 0.75rem;
+        }
+
+        .page-header {
+            padding: 2rem 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .header-content {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .header-icon {
+            width: 80px;
+            height: 80px;
+            font-size: 2.5rem;
+        }
+
+        .header-text h1 {
+            font-size: 2rem;
+        }
+
+        .header-text p {
+            font-size: 1rem;
+        }
+
+        .stats-row {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        .plan-content {
+            padding: 2rem 1.5rem;
+        }
+
+        .plan-text,
+        .plan-text-formatted {
+            padding: 1.5rem;
+            font-size: 0.95rem;
+        }
+
+        .action-section {
+            flex-direction: column;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .action-text {
+            min-width: 100%;
+        }
+
+        .action-btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .print-btn {
+            width: 100%;
+            justify-content: center;
+            margin-right: 0;
+            margin-bottom: 1rem;
+        }
+    }
+
+    /* Animations */
+    @keyframes fadeInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes bounceIn {
+        0% {
+            opacity: 0;
+            transform: scale(0.3);
+        }
+        50% {
+            transform: scale(1.05);
+        }
+        70% {
+            transform: scale(0.9);
+        }
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    /* Print Styles */
+    @media print {
+        body {
+            background: white;
+        }
+
+        .action-section,
+        .print-btn,
+        .tips-card {
+            display: none;
+        }
+
+        .page-header,
+        .plan-card {
+            box-shadow: none;
+            page-break-inside: avoid;
+        }
+    }
+
+    /* Copy Button */
+    .copy-btn {
+        position: absolute;
+        top: 1.5rem;
+        right: 1.5rem;
+        background: white;
+        color: #667eea;
+        border: 2px solid #667eea;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .copy-btn:hover {
+        background: #667eea;
+        color: white;
+        transform: translateY(-2px);
+    }
+
+    .copy-btn.copied {
+        background: #10b981;
+        border-color: #10b981;
+        color: white;
+    }
+
+    .plan-content {
+        position: relative;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="plan-container">
+    
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="header-content">
+            <div class="header-icon">
+                <i class="fas fa-clipboard-list"></i>
+            </div>
+            <div class="header-text">
+                <h1>Personalized Skill Improvement Plan</h1>
+                <p>Your customized roadmap to career success and skill enhancement</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-row">
+        <div class="stat-card primary">
+            <div class="stat-icon">
+                <i class="fas fa-target"></i>
+            </div>
+            <div class="stat-label">Focus Areas</div>
+            <div class="stat-value">{{ plan.focus_areas|default:"Multiple" }}</div>
+        </div>
+        
+        <div class="stat-card success">
+            <div class="stat-icon">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-label">Timeline</div>
+            <div class="stat-value">{{ plan.timeline|default:"Flexible" }}</div>
+        </div>
+        
+        <div class="stat-card info">
+            <div class="stat-icon">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <div class="stat-label">Difficulty</div>
+            <div class="stat-value">{{ plan.difficulty|default:"Moderate" }}</div>
+        </div>
+    </div>
+
+    <!-- Main Plan Card -->
+    <div class="plan-card">
+        <div class="plan-header">
+            <div class="plan-header-icon">
+                <i class="fas fa-book-open"></i>
+            </div>
+            <h3>Your Development Plan</h3>
+        </div>
+        
+        <div class="plan-content">
+            <button class="copy-btn" id="copyBtn">
+                <i class="fas fa-copy"></i>
+                <span>Copy Plan</span>
+            </button>
+            
+            <pre class="plan-text" id="planText">{{ plan.plan_text }}</pre>
+        </div>
+
+        <!-- Action Section -->
+        <div class="action-section">
+            <div class="action-text">
+                <h4>Ready for the Next Step?</h4>
+                <p>Continue your journey with our AI-powered interview to assess your skills</p>
+            </div>
+            <div>
+                <button class="print-btn" onclick="window.print()">
+                    <i class="fas fa-print"></i>
+                    Print Plan
+                </button>
+                <a class="action-btn" href="{% url 'interview' analysis.candidate.id %}">
+                    Proceed to Interview
+                    <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tips Card -->
+    <div class="tips-card">
+        <div class="tips-header">
+            <div class="tips-icon">
+                <i class="fas fa-lightbulb"></i>
+            </div>
+            <h4>Pro Tips for Success</h4>
+        </div>
+        <ul class="tips-list">
+            <li>
+                <i class="fas fa-check-circle"></i>
+                <span>Set aside dedicated time each day to work on your improvement plan</span>
+            </li>
+            <li>
+                <i class="fas fa-check-circle"></i>
+                <span>Track your progress regularly and adjust your learning pace as needed</span>
+            </li>
+            <li>
+                <i class="fas fa-check-circle"></i>
+                <span>Practice hands-on projects to reinforce theoretical knowledge</span>
+            </li>
+            <li>
+                <i class="fas fa-check-circle"></i>
+                <span>Join communities and forums related to your skill areas for support</span>
+            </li>
+            <li>
+                <i class="fas fa-check-circle"></i>
+                <span>Don't hesitate to revisit topics that need more attention</span>
+            </li>
+        </ul>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Copy to clipboard functionality
+    const copyBtn = document.getElementById('copyBtn');
+    const planText = document.getElementById('planText');
+
+    copyBtn.addEventListener('click', async function() {
+        try {
+            await navigator.clipboard.writeText(planText.textContent);
+            
+            // Update button state
+            const originalHTML = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-check"></i><span>Copied!</span>';
+            this.classList.add('copied');
+            
+            // Reset after 2 seconds
+            setTimeout(() => {
+                this.innerHTML = originalHTML;
+                this.classList.remove('copied');
+            }, 2000);
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+            alert('Failed to copy. Please try selecting and copying manually.');
+        }
+    });
+
+    // Add ripple effect to action button
+    const actionBtn = document.querySelector('.action-btn');
+    if (actionBtn) {
+        actionBtn.addEventListener('click', function(e) {
+            const ripple = document.createElement('span');
+            ripple.style.position = 'absolute';
+            ripple.style.borderRadius = '50%';
+            ripple.style.background = 'rgba(255, 255, 255, 0.6)';
+            ripple.style.width = '100px';
+            ripple.style.height = '100px';
+            ripple.style.transform = 'scale(0)';
+            ripple.style.animation = 'ripple 0.6s ease-out';
+            
+            const rect = this.getBoundingClientRect();
+            ripple.style.left = (e.clientX - rect.left - 50) + 'px';
+            ripple.style.top = (e.clientY - rect.top - 50) + 'px';
+            
+            this.appendChild(ripple);
+            
+            setTimeout(() => {
+                ripple.remove();
+            }, 600);
+        });
+    }
+
+    // Add CSS for ripple animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes ripple {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+
+    // Smooth scroll to action section on page load
+    window.addEventListener('load', function() {
+        // Add any additional initialization here
+    });
+</script>
+{% endblock %}

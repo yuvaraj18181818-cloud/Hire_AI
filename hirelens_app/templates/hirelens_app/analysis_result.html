@@ -1,0 +1,857 @@
+{% extends "hirelens_app/base.html" %}
+{% load custom_filters %}
+
+{% block title %}Resume Analysis - {{ analysis.candidate.name }} - HireLens AI{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --gradient-success: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        --gradient-info: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+        --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+        --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --shadow-medium: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        --shadow-large: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+    }
+
+    /* Page Header Styles */
+    .page-header {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-medium);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .page-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 300px;
+        height: 300px;
+        background: var(--gradient-primary);
+        opacity: 0.05;
+        border-radius: 50%;
+        transform: translate(30%, -30%);
+    }
+
+    .page-header-content {
+        position: relative;
+        z-index: 1;
+    }
+
+    /* Enhanced Info Cards */
+    .info-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: var(--shadow-soft);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .info-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        transition: width 0.3s ease;
+    }
+
+    .info-card:hover {
+        transform: translateY(-8px);
+        box-shadow: var(--shadow-large);
+    }
+
+    .info-card.primary::before {
+        background: var(--gradient-primary);
+    }
+
+    .info-card.success::before {
+        background: var(--gradient-success);
+    }
+
+    /* Score Circle Animation */
+    .score-circle {
+        width: 140px;
+        height: 140px;
+        position: relative;
+        margin: 0 auto;
+    }
+
+    .score-circle-bg {
+        fill: none;
+        stroke: #e5e7eb;
+        stroke-width: 10;
+    }
+
+    .score-circle-progress {
+        fill: none;
+        stroke: url(#gradient-success);
+        stroke-width: 10;
+        stroke-linecap: round;
+        transform: rotate(-90deg);
+        transform-origin: 50% 50%;
+        transition: stroke-dashoffset 2s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: drawCircle 2s ease-out forwards;
+    }
+
+    @keyframes drawCircle {
+        from {
+            stroke-dashoffset: 440;
+        }
+    }
+
+    .score-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+    }
+
+    /* Section Cards */
+    .section-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: var(--shadow-soft);
+        overflow: hidden;
+        margin-bottom: 2rem;
+        transition: all 0.3s ease;
+    }
+
+    .section-card:hover {
+        box-shadow: var(--shadow-medium);
+    }
+
+    .section-header {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        padding: 1.5rem;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .section-header h5 {
+        margin: 0;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .section-header-icon {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        font-size: 1.25rem;
+    }
+
+    .icon-info {
+        background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+        color: white;
+    }
+
+    .icon-warning {
+        background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+        color: white;
+    }
+
+    .icon-success {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: white;
+    }
+
+    /* AI Summary Box */
+    .ai-summary {
+        background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%);
+        border-left: 4px solid #3b82f6;
+        padding: 1.5rem;
+        border-radius: 12px;
+        position: relative;
+        margin: 1.5rem;
+    }
+
+    .ai-summary::before {
+        content: '💡';
+        position: absolute;
+        top: -15px;
+        right: 20px;
+        font-size: 2rem;
+        opacity: 0.5;
+    }
+
+    /* Enhanced Table Styles */
+    .skills-table {
+        margin: 0;
+    }
+
+    .skills-table thead th {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+        padding: 1.25rem 1.5rem;
+        border: none;
+        color: #475569;
+    }
+
+    .skills-table tbody tr {
+        transition: all 0.2s ease;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .skills-table tbody tr:hover {
+        background: linear-gradient(135deg, #fefefe 0%, #f8fafc 100%);
+        transform: scale(1.01);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+    .skills-table tbody td {
+        padding: 1.25rem 1.5rem;
+        vertical-align: middle;
+        border: none;
+    }
+
+    /* Enhanced Badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1.25rem;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        transition: all 0.2s ease;
+    }
+
+    .status-badge:hover {
+        transform: scale(1.05);
+    }
+
+    .badge-present {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        color: #065f46;
+        border: 2px solid #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+
+    .badge-missing {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        color: #991b1b;
+        border: 2px solid #ef4444;
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+    }
+
+    /* Enhanced Progress Bars */
+    .skill-progress-container {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .skill-progress {
+        flex: 1;
+        height: 12px;
+        background: #f1f5f9;
+        border-radius: 20px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+    }
+
+    .skill-progress-bar {
+        height: 100%;
+        border-radius: 20px;
+        position: relative;
+        overflow: hidden;
+        transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: progressSlide 1.5s ease-out forwards;
+    }
+
+    .skill-progress-bar::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(90deg, 
+            transparent, 
+            rgba(255, 255, 255, 0.3), 
+            transparent);
+        animation: shimmer 2s infinite;
+    }
+
+    @keyframes progressSlide {
+        from {
+            width: 0 !important;
+        }
+    }
+
+    @keyframes shimmer {
+        0% {
+            transform: translateX(-100%);
+        }
+        100% {
+            transform: translateX(100%);
+        }
+    }
+
+    .progress-success {
+        background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+    }
+
+    .progress-danger {
+        background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+    }
+
+    .skill-percentage {
+        min-width: 45px;
+        text-align: right;
+        font-weight: 700;
+        font-size: 0.875rem;
+        color: #64748b;
+    }
+
+    /* Action Buttons */
+    .action-btn {
+        padding: 1.25rem 2rem;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        border: none;
+        box-shadow: var(--shadow-soft);
+    }
+
+    .action-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.3);
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+    }
+
+    .action-btn:hover::before {
+        width: 300px;
+        height: 300px;
+    }
+
+    .action-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-large);
+    }
+
+    .btn-gradient-primary {
+        background: var(--gradient-primary);
+        color: white;
+    }
+
+    .btn-gradient-success {
+        background: var(--gradient-success);
+        color: white;
+    }
+
+    .btn-outline-gradient {
+        background: white;
+        color: #667eea;
+        border: 2px solid #667eea;
+    }
+
+    .btn-outline-gradient:hover {
+        background: var(--gradient-primary);
+        color: white;
+        border-color: transparent;
+    }
+
+    /* Course Cards */
+    .course-item {
+        background: white;
+        border: none;
+        border-bottom: 1px solid #f1f5f9;
+        padding: 1.5rem;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+
+    .course-item::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        width: 4px;
+        background: var(--gradient-info);
+        transform: scaleY(0);
+        transition: transform 0.3s ease;
+    }
+
+    .course-item:hover {
+        background: linear-gradient(135deg, #fefefe 0%, #f8fafc 100%);
+        transform: translateX(8px);
+        box-shadow: var(--shadow-soft);
+    }
+
+    .course-item:hover::before {
+        transform: scaleY(1);
+    }
+
+    .course-badge {
+        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+        color: #475569;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        transition: all 0.2s ease;
+    }
+
+    .course-item:hover .course-badge {
+        background: var(--gradient-info);
+        color: white;
+        transform: scale(1.05);
+    }
+
+    /* Empty State */
+    .empty-state {
+        padding: 3rem;
+        text-align: center;
+    }
+
+    .empty-state-icon {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 1.5rem;
+        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        color: #94a3b8;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .page-header {
+            padding: 1.5rem;
+        }
+
+        .score-circle {
+            width: 120px;
+            height: 120px;
+        }
+
+        .section-header {
+            padding: 1rem;
+        }
+
+        .ai-summary {
+            margin: 1rem;
+            padding: 1rem;
+        }
+
+        .skills-table thead th,
+        .skills-table tbody td {
+            padding: 1rem;
+            font-size: 0.875rem;
+        }
+
+        .action-btn {
+            padding: 1rem 1.5rem;
+            font-size: 0.875rem;
+        }
+
+        .skill-progress-container {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+
+        .skill-percentage {
+            align-self: flex-end;
+        }
+    }
+
+    /* Animations */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .animate-fade-in {
+        animation: fadeInUp 0.6s ease-out forwards;
+    }
+
+    .animate-delay-1 {
+        animation-delay: 0.1s;
+        opacity: 0;
+    }
+
+    .animate-delay-2 {
+        animation-delay: 0.2s;
+        opacity: 0;
+    }
+
+    .animate-delay-3 {
+        animation-delay: 0.3s;
+        opacity: 0;
+    }
+
+    /* Date Badge */
+    .date-badge {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        color: #475569;
+        padding: 0.75rem 1.5rem;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        box-shadow: var(--shadow-soft);
+    }
+
+    /* Skill Name */
+    .skill-name {
+        font-weight: 600;
+        color: #1e293b;
+        font-size: 0.95rem;
+    }
+
+    /* Candidate Info Icon */
+    .candidate-icon {
+        width: 50px;
+        height: 50px;
+        background: var(--gradient-primary);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    
+    <!-- Page Header -->
+    <div class="page-header animate-fade-in">
+        <div class="page-header-content">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+                <div>
+                    <h1 class="mb-2 fw-bold" style="color: #1e293b;">
+                        <i class="fas fa-chart-line me-2" style="color: #667eea;"></i>
+                        Resume Analysis Result
+                    </h1>
+                    <p class="text-muted mb-0 fs-6">
+                        Detailed AI-powered assessment for 
+                        <span class="fw-bold text-dark">{{ analysis.job.job_title }}</span>
+                    </p>
+                </div>
+                <div>
+                    <span class="date-badge">
+                        <i class="fas fa-calendar-alt"></i>
+                        {{ analysis.analysis_time|date:"M d, Y" }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Candidate & Score Cards -->
+    <div class="row g-4 mb-4">
+        <!-- Candidate Info Card -->
+        <div class="col-lg-6 animate-fade-in animate-delay-1">
+            <div class="info-card primary">
+                <div class="candidate-icon">
+                    <i class="fas fa-user"></i>
+                </div>
+                <h6 class="text-uppercase text-muted fw-bold small mb-2 opacity-75">Candidate Profile</h6>
+                <h2 class="fw-bold mb-3" style="color: #1e293b;">{{ analysis.candidate.name }}</h2>
+                <div class="d-flex align-items-center text-muted">
+                    <i class="fas fa-envelope me-2" style="color: #667eea;"></i>
+                    <span class="fs-6">{{ analysis.candidate.email }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Match Score Card -->
+        <div class="col-lg-6 animate-fade-in animate-delay-2">
+            <div class="info-card success">
+                <h6 class="text-uppercase text-muted fw-bold small mb-3 opacity-75">Overall Match Score</h6>
+                
+                <div class="score-circle">
+                    <svg width="140" height="140" viewBox="0 0 140 140">
+                        <defs>
+                            <linearGradient id="gradient-success" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#11998e;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#38ef7d;stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                        <circle class="score-circle-bg" cx="70" cy="70" r="60"></circle>
+                        <circle class="score-circle-progress" 
+                                cx="70" cy="70" r="60"
+                                stroke-dasharray="440"
+                                stroke-dashoffset="{% widthratio 100 1 analysis.similarity_score|subtract:100|mul:-4.4 %}">
+                        </circle>
+                    </svg>
+                    <div class="score-text">
+                        <div class="display-5 fw-bold" style="color: #11998e;">{{ analysis.similarity_score }}%</div>
+                        <small class="text-muted fw-semibold">Match</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Summary Section -->
+    <div class="section-card animate-fade-in animate-delay-3">
+        <div class="section-header">
+            <h5>
+                <div class="section-header-icon icon-info">
+                    <i class="fas fa-robot"></i>
+                </div>
+                AI Assessment Summary
+            </h5>
+        </div>
+        <div class="ai-summary">
+            <p class="mb-0 fs-6 lh-lg" style="color: #334155;">
+                {{ analysis.ai_summary|default:"Our AI has completed the analysis. The detailed breakdown is available in the sections below." }}
+            </p>
+        </div>
+    </div>
+
+    <!-- Skill Gap Analysis Section -->
+    <div class="section-card animate-fade-in">
+        <div class="section-header">
+            <h5>
+                <div class="section-header-icon icon-warning">
+                    <i class="fas fa-tasks"></i>
+                </div>
+                Comprehensive Skill Analysis
+            </h5>
+        </div>
+        
+        {% if skills %}
+        <div class="table-responsive">
+            <table class="table skills-table">
+                <thead>
+                    <tr>
+                        <th style="width: 30%;">Required Skill</th>
+                        <th class="text-center" style="width: 20%;">Status</th>
+                        <th style="width: 50%;">Match Confidence</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for skill in skills %}
+                    {% widthratio skill.similarity_score 1 100 as percent %}
+                    <tr>
+                        <td>
+                            <div class="skill-name">
+                                <i class="fas fa-code me-2" style="color: #667eea; font-size: 0.875rem;"></i>
+                                {{ skill.skill_name|capfirst }}
+                            </div>
+                        </td>
+                        
+                        <td class="text-center">
+                            {% if skill.is_present %}
+                                <span class="status-badge badge-present">
+                                    <i class="fas fa-check-circle"></i>
+                                    Present
+                                </span>
+                            {% else %}
+                                <span class="status-badge badge-missing">
+                                    <i class="fas fa-times-circle"></i>
+                                    Missing
+                                </span>
+                            {% endif %}
+                        </td>
+                        
+                        <td>
+                            <div class="skill-progress-container">
+                                <div class="skill-progress">
+                                    <div class="skill-progress-bar {% if skill.is_present %}progress-success{% else %}progress-danger{% endif %}" 
+                                         style="width: {{ percent }}%;">
+                                    </div>
+                                </div>
+                                <span class="skill-percentage">{{ percent }}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <h5 class="text-muted fw-semibold">No Skill Data Available</h5>
+            <p class="text-muted small mb-0">Skill analysis information is not available for this candidate.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row g-3 mb-4 animate-fade-in">
+        <div class="col-md-6">
+            {% if courses %}
+            <button onclick="document.getElementById('courses-section').scrollIntoView({behavior: 'smooth'});" 
+                    class="action-btn btn-outline-gradient w-100">
+                <i class="fas fa-book-reader me-2"></i>
+                View Recommended Courses
+                <i class="fas fa-arrow-down ms-2"></i>
+            </button>
+            {% else %}
+            <button class="action-btn w-100" style="background: #f1f5f9; color: #94a3b8;" disabled>
+                <i class="fas fa-check-circle me-2"></i>
+                No Skill Gaps Found
+            </button>
+            {% endif %}
+        </div>
+        <div class="col-md-6">
+            <a href="{% url 'interview' analysis.id %}" class="action-btn btn-gradient-primary w-100 text-decoration-none d-block text-center">
+                <i class="fas fa-microphone-alt me-2"></i>
+                Start AI Interview
+                <i class="fas fa-arrow-right ms-2"></i>
+            </a>
+        </div>
+    </div>
+    
+    <!-- Recommended Courses Section -->
+    {% if courses %}
+    <div id="courses-section" class="section-card animate-fade-in" style="scroll-margin-top: 20px;">
+        <div class="section-header">
+            <h5>
+                <div class="section-header-icon icon-success">
+                    <i class="fas fa-graduation-cap"></i>
+                </div>
+                Personalized Learning Path
+            </h5>
+        </div>
+        <div class="p-0">
+            {% for course in courses %}
+            <a href="{{ course.course_link }}" target="_blank" class="course-item d-flex justify-content-between align-items-center text-decoration-none">
+                <div class="flex-grow-1">
+                    <h6 class="mb-2 fw-bold" style="color: #1e293b;">
+                        <i class="fas fa-play-circle me-2" style="color: #3b82f6;"></i>
+                        {{ course.course_name }}
+                    </h6>
+                    <p class="mb-0 small text-muted">
+                        <i class="fas fa-tag me-1"></i>
+                        Skill Development: <span class="fw-semibold text-dark">{{ course.skill_name }}</span>
+                    </p>
+                </div>
+                <div class="course-badge">
+                    View Course
+                    <i class="fas fa-external-link-alt ms-2"></i>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Animate progress bars on load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Trigger animations
+        const progressBars = document.querySelectorAll('.skill-progress-bar');
+        progressBars.forEach(bar => {
+            const width = bar.style.width;
+            bar.style.width = '0';
+            setTimeout(() => {
+                bar.style.width = width;
+            }, 100);
+        });
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Add ripple effect to buttons
+        const buttons = document.querySelectorAll('.action-btn');
+        buttons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                const ripple = document.createElement('span');
+                ripple.style.position = 'absolute';
+                ripple.style.width = ripple.style.height = '100px';
+                ripple.style.background = 'rgba(255, 255, 255, 0.5)';
+                ripple.style.borderRadius = '50%';
+                ripple.style.transform = 'scale(0)';
+                ripple.style.animation = 'ripple 0.6s ease-out';
+                
+                const rect = this.getBoundingClientRect();
+                ripple.style.left = (e.clientX - rect.left - 50) + 'px';
+                ripple.style.top = (e.clientY - rect.top - 50) + 'px';
+                
+                this.appendChild(ripple);
+                
+                setTimeout(() => {
+                    ripple.remove();
+                }, 600);
+            });
+        });
+    });
+
+    // Add CSS for ripple animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes ripple {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+</script>
+{% endblock %}

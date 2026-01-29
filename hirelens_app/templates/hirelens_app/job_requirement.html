@@ -1,0 +1,925 @@
+{% extends "hirelens_app/base.html" %}
+
+{% block title %}Job Requirements - HireLens AI{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --gradient-success: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        --gradient-info: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+        --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --shadow-medium: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        --shadow-large: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+        padding: 2rem 0;
+    }
+
+    .requirements-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+
+    /* Page Header */
+    .page-header {
+        text-align: center;
+        margin-bottom: 3rem;
+        animation: fadeInDown 0.6s ease-out;
+    }
+
+    .header-icon-wrapper {
+        width: 100px;
+        height: 100px;
+        margin: 0 auto 1.5rem;
+        background: var(--gradient-primary);
+        border-radius: 25px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+        color: white;
+        box-shadow: var(--shadow-large);
+        animation: bounceIn 0.8s ease-out;
+        position: relative;
+    }
+
+    .header-icon-wrapper::before {
+        content: '';
+        position: absolute;
+        width: 120%;
+        height: 120%;
+        background: var(--gradient-primary);
+        border-radius: 25px;
+        opacity: 0.2;
+        animation: pulse 2s infinite;
+    }
+
+    .page-header h2 {
+        font-size: 2.75rem;
+        font-weight: 800;
+        background: var(--gradient-primary);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 0.75rem;
+    }
+
+    .page-header p {
+        color: #64748b;
+        font-size: 1.15rem;
+        max-width: 700px;
+        margin: 0 auto;
+        line-height: 1.6;
+    }
+
+    /* Main Form Card */
+    .form-card {
+        background: white;
+        border-radius: 24px;
+        padding: 3rem;
+        box-shadow: var(--shadow-large);
+        position: relative;
+        overflow: hidden;
+        animation: fadeInUp 0.6s ease-out;
+    }
+
+    .form-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 500px;
+        height: 500px;
+        background: var(--gradient-primary);
+        opacity: 0.03;
+        border-radius: 50%;
+    }
+
+    .form-card::after {
+        content: '';
+        position: absolute;
+        bottom: -50%;
+        left: -20%;
+        width: 400px;
+        height: 400px;
+        background: var(--gradient-success);
+        opacity: 0.03;
+        border-radius: 50%;
+    }
+
+    /* Form Content */
+    .form-content {
+        position: relative;
+        z-index: 1;
+    }
+
+    .form-header {
+        margin-bottom: 2.5rem;
+        text-align: center;
+        padding-bottom: 2rem;
+        border-bottom: 2px solid #f1f5f9;
+    }
+
+    .form-header h3 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-header p {
+        color: #64748b;
+        font-size: 1rem;
+    }
+
+    /* Form Groups */
+    .form-group {
+        margin-bottom: 2.5rem;
+        animation: fadeInUp 0.6s ease-out backwards;
+    }
+
+    .form-group:nth-child(1) { animation-delay: 0.1s; }
+    .form-group:nth-child(2) { animation-delay: 0.2s; }
+    .form-group:nth-child(3) { animation-delay: 0.3s; }
+
+    .form-group label {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 1rem;
+        font-size: 1rem;
+    }
+
+    .label-icon {
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .icon-primary {
+        background: linear-gradient(135deg, #e0e7ff 0%, #dbeafe 100%);
+        color: #667eea;
+    }
+
+    .icon-success {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        color: #10b981;
+    }
+
+    .icon-info {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        color: #3b82f6;
+    }
+
+    .form-group:focus-within .label-icon {
+        transform: scale(1.1) rotate(5deg);
+    }
+
+    .required {
+        color: #ef4444;
+        margin-left: 0.25rem;
+        font-size: 1.25rem;
+    }
+
+    /* Input Fields */
+    .form-control {
+        width: 100%;
+        padding: 1.25rem 1.5rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 14px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: #f8fafc;
+        font-family: inherit;
+        color: #1e293b;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #667eea;
+        background: white;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        transform: translateY(-2px);
+    }
+
+    .form-control:hover {
+        border-color: #cbd5e1;
+        background: white;
+    }
+
+    .form-control::placeholder {
+        color: #94a3b8;
+    }
+
+    /* Textarea Specific */
+    textarea.form-control {
+        min-height: 180px;
+        resize: vertical;
+        line-height: 1.6;
+    }
+
+    /* Input Helper Text */
+    .input-helper {
+        margin-top: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #64748b;
+        font-size: 0.875rem;
+    }
+
+    .input-helper i {
+        color: #3b82f6;
+    }
+
+    /* Skills Tag Container */
+    .skills-tags-preview {
+        margin-top: 1rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        min-height: 40px;
+        padding: 0.75rem;
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border-radius: 12px;
+        border: 2px dashed #e2e8f0;
+    }
+
+    .skill-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: var(--gradient-primary);
+        color: white;
+        border-radius: 50px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        animation: popIn 0.3s ease-out;
+        box-shadow: var(--shadow-soft);
+    }
+
+    .skill-tag i {
+        font-size: 0.75rem;
+    }
+
+    .skills-tags-preview.empty::before {
+        content: 'Skills will appear here as you type...';
+        color: #94a3b8;
+        font-size: 0.875rem;
+        font-style: italic;
+    }
+
+    /* Experience Input with Icon */
+    .experience-input-wrapper {
+        position: relative;
+    }
+
+    .experience-input-wrapper .form-control {
+        padding-left: 3.5rem;
+    }
+
+    .experience-icon {
+        position: absolute;
+        left: 1.25rem;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 1.25rem;
+        color: #667eea;
+        pointer-events: none;
+    }
+
+    .experience-suffix {
+        position: absolute;
+        right: 1.5rem;
+        top: 50%;
+        transform: translateY(-50%);
+        font-weight: 600;
+        color: #64748b;
+        font-size: 0.875rem;
+        pointer-events: none;
+    }
+
+    /* Submit Button */
+    .submit-section {
+        margin-top: 3rem;
+        padding-top: 2rem;
+        border-top: 2px solid #f1f5f9;
+        animation: fadeInUp 0.6s ease-out 0.4s backwards;
+    }
+
+    .submit-btn {
+        width: 100%;
+        padding: 1.75rem 2rem;
+        background: var(--gradient-primary);
+        color: white;
+        border: none;
+        border-radius: 16px;
+        font-size: 1.25rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--shadow-medium);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+    }
+
+    .submit-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.3);
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+    }
+
+    .submit-btn:hover::before {
+        width: 500px;
+        height: 500px;
+    }
+
+    .submit-btn:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-large);
+    }
+
+    .submit-btn:active {
+        transform: translateY(-2px);
+    }
+
+    .submit-btn i {
+        transition: transform 0.3s ease;
+        font-size: 1.5rem;
+    }
+
+    .submit-btn:hover i {
+        transform: translateX(5px);
+    }
+
+    /* Info Box */
+    .info-box {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        border-left: 4px solid #3b82f6;
+        padding: 1.75rem;
+        border-radius: 14px;
+        margin-top: 2rem;
+        display: flex;
+        align-items: start;
+        gap: 1.25rem;
+        box-shadow: var(--shadow-soft);
+        animation: fadeInUp 0.6s ease-out 0.5s backwards;
+    }
+
+    .info-box-icon {
+        width: 48px;
+        height: 48px;
+        background: #3b82f6;
+        color: white;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+        box-shadow: var(--shadow-soft);
+    }
+
+    .info-box-content h5 {
+        color: #1e3a8a;
+        font-weight: 700;
+        margin-bottom: 0.75rem;
+        font-size: 1.125rem;
+    }
+
+    .info-box-content ul {
+        margin: 0;
+        padding-left: 1.5rem;
+        color: #1e40af;
+    }
+
+    .info-box-content ul li {
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+        line-height: 1.6;
+    }
+
+    /* Success/Error Messages */
+    .message-alert {
+        padding: 1.25rem 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        animation: slideInDown 0.5s ease-out;
+    }
+
+    .message-alert.success {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        border-left: 4px solid #10b981;
+    }
+
+    .message-alert.error {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        border-left: 4px solid #ef4444;
+    }
+
+    .message-alert i {
+        font-size: 1.5rem;
+    }
+
+    .message-alert.success i {
+        color: #065f46;
+    }
+
+    .message-alert.error i {
+        color: #991b1b;
+    }
+
+    .message-alert p {
+        margin: 0;
+        font-weight: 600;
+        flex: 1;
+    }
+
+    .message-alert.success p {
+        color: #065f46;
+    }
+
+    .message-alert.error p {
+        color: #991b1b;
+    }
+
+    /* Character Counter */
+    .char-counter {
+        text-align: right;
+        margin-top: 0.5rem;
+        font-size: 0.8rem;
+        color: #64748b;
+        font-weight: 600;
+    }
+
+    .char-counter.warning {
+        color: #f59e0b;
+    }
+
+    .char-counter.danger {
+        color: #ef4444;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        body {
+            padding: 1rem 0;
+        }
+
+        .requirements-container {
+            padding: 0 0.75rem;
+        }
+
+        .page-header h2 {
+            font-size: 2.25rem;
+        }
+
+        .header-icon-wrapper {
+            width: 80px;
+            height: 80px;
+            font-size: 2.5rem;
+        }
+
+        .form-card {
+            padding: 2rem 1.5rem;
+            border-radius: 20px;
+        }
+
+        .form-header h3 {
+            font-size: 1.5rem;
+        }
+
+        .submit-btn {
+            padding: 1.5rem 1.5rem;
+            font-size: 1.125rem;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .page-header h2 {
+            font-size: 1.875rem;
+        }
+
+        .page-header p {
+            font-size: 1rem;
+        }
+
+        .form-card {
+            padding: 1.5rem 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 2rem;
+        }
+
+        .submit-btn {
+            font-size: 1rem;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .info-box {
+            flex-direction: column;
+        }
+    }
+
+    /* Animations */
+    @keyframes fadeInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes bounceIn {
+        0% {
+            opacity: 0;
+            transform: scale(0.3);
+        }
+        50% {
+            transform: scale(1.05);
+        }
+        70% {
+            transform: scale(0.9);
+        }
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 0.2;
+        }
+        50% {
+            transform: scale(1.05);
+            opacity: 0.3;
+        }
+    }
+
+    @keyframes popIn {
+        0% {
+            opacity: 0;
+            transform: scale(0);
+        }
+        50% {
+            transform: scale(1.1);
+        }
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    @keyframes slideInDown {
+        from {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    /* Loading State */
+    .submit-btn.loading {
+        pointer-events: none;
+        opacity: 0.7;
+    }
+
+    .submit-btn.loading .btn-text {
+        opacity: 0;
+    }
+
+    .submit-btn.loading::after {
+        content: '';
+        position: absolute;
+        width: 24px;
+        height: 24px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="requirements-container">
+    
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="header-icon-wrapper">
+            <i class="fas fa-briefcase"></i>
+        </div>
+        <h2>Company Job Requirements</h2>
+        <p>Define your ideal candidate profile and let our AI find the perfect match</p>
+    </div>
+
+    <!-- Main Form Card -->
+    <div class="form-card">
+        <div class="form-content">
+            
+            <!-- Form Header -->
+            <div class="form-header">
+                <h3>Create New Job Requirement</h3>
+                <p>Fill in the details below to set up a new job position</p>
+            </div>
+
+            <form method="post" id="requirementForm">
+                {% csrf_token %}
+
+                <!-- Job Title -->
+                <div class="form-group">
+                    <label>
+                        <div class="label-icon icon-primary">
+                            <i class="fas fa-user-tie"></i>
+                        </div>
+                        <span>Job Title</span>
+                        <span class="required">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        name="job_title" 
+                        class="form-control" 
+                        placeholder="e.g., Senior Software Engineer, Data Scientist"
+                        required
+                        maxlength="100"
+                    >
+                    <div class="input-helper">
+                        <i class="fas fa-info-circle"></i>
+                        <span>Enter a clear and specific job title</span>
+                    </div>
+                </div>
+
+                <!-- Required Skills -->
+                <div class="form-group">
+                    <label>
+                        <div class="label-icon icon-success">
+                            <i class="fas fa-code"></i>
+                        </div>
+                        <span>Required Skills</span>
+                        <span class="required">*</span>
+                    </label>
+                    <textarea 
+                        name="skills" 
+                        class="form-control" 
+                        id="skillsInput"
+                        placeholder="Python, Machine Learning, TensorFlow, AWS, Docker, SQL"
+                        required
+                    ></textarea>
+                    <div class="input-helper">
+                        <i class="fas fa-info-circle"></i>
+                        <span>Separate each skill with a comma (,)</span>
+                    </div>
+                    <div class="skills-tags-preview empty" id="skillsPreview"></div>
+                    <div class="char-counter" id="skillsCounter">0 skills</div>
+                </div>
+
+                <!-- Minimum Experience -->
+                <div class="form-group">
+                    <label>
+                        <div class="label-icon icon-info">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <span>Minimum Experience</span>
+                        <span class="required">*</span>
+                    </label>
+                    <div class="experience-input-wrapper">
+                        <i class="fas fa-calendar-alt experience-icon"></i>
+                        <input 
+                            type="number" 
+                            name="experience" 
+                            class="form-control" 
+                            placeholder="3"
+                            required
+                            min="0"
+                            max="50"
+                        >
+                        <span class="experience-suffix">Years</span>
+                    </div>
+                    <div class="input-helper">
+                        <i class="fas fa-info-circle"></i>
+                        <span>Specify the minimum years of professional experience required</span>
+                    </div>
+                </div>
+
+                <!-- Submit Section -->
+                <div class="submit-section">
+                    <button type="submit" class="submit-btn" id="submitBtn">
+                        <span class="btn-text">
+                            <i class="fas fa-save"></i>
+                            Save Requirement
+                        </span>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Info Box -->
+            <div class="info-box">
+                <div class="info-box-icon">
+                    <i class="fas fa-lightbulb"></i>
+                </div>
+                <div class="info-box-content">
+                    <h5>Tips for Better Results</h5>
+                    <ul>
+                        <li><strong>Be Specific:</strong> Use exact skill names (e.g., "React.js" instead of "frontend")</li>
+                        <li><strong>Prioritize:</strong> List the most important skills first</li>
+                        <li><strong>Be Realistic:</strong> Set achievable experience requirements</li>
+                        <li><strong>Include Variety:</strong> Mix technical and soft skills for comprehensive matching</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Skills preview and tag generation
+    const skillsInput = document.getElementById('skillsInput');
+    const skillsPreview = document.getElementById('skillsPreview');
+    const skillsCounter = document.getElementById('skillsCounter');
+    const requirementForm = document.getElementById('requirementForm');
+    const submitBtn = document.getElementById('submitBtn');
+
+    // Update skills preview in real-time
+    skillsInput.addEventListener('input', function() {
+        const skillsText = this.value.trim();
+        
+        if (skillsText === '') {
+            skillsPreview.innerHTML = '';
+            skillsPreview.classList.add('empty');
+            skillsCounter.textContent = '0 skills';
+            return;
+        }
+
+        const skills = skillsText.split(',').map(s => s.trim()).filter(s => s !== '');
+        
+        skillsPreview.classList.remove('empty');
+        skillsPreview.innerHTML = '';
+        
+        skills.forEach(skill => {
+            const tag = document.createElement('span');
+            tag.className = 'skill-tag';
+            tag.innerHTML = `
+                <i class="fas fa-check"></i>
+                ${skill}
+            `;
+            skillsPreview.appendChild(tag);
+        });
+
+        // Update counter
+        const count = skills.length;
+        skillsCounter.textContent = `${count} skill${count !== 1 ? 's' : ''}`;
+        
+        // Color code based on skill count
+        if (count < 3) {
+            skillsCounter.classList.add('warning');
+            skillsCounter.classList.remove('danger');
+        } else if (count > 15) {
+            skillsCounter.classList.add('danger');
+            skillsCounter.classList.remove('warning');
+        } else {
+            skillsCounter.classList.remove('warning', 'danger');
+        }
+    });
+
+    // Form submission with loading state
+    requirementForm.addEventListener('submit', function(e) {
+        submitBtn.classList.add('loading');
+    });
+
+    // Add ripple effect to submit button
+    submitBtn.addEventListener('click', function(e) {
+        if (!submitBtn.classList.contains('loading')) {
+            const ripple = document.createElement('span');
+            ripple.style.position = 'absolute';
+            ripple.style.borderRadius = '50%';
+            ripple.style.background = 'rgba(255, 255, 255, 0.6)';
+            ripple.style.width = '100px';
+            ripple.style.height = '100px';
+            ripple.style.transform = 'scale(0)';
+            ripple.style.animation = 'ripple 0.6s ease-out';
+            
+            const rect = this.getBoundingClientRect();
+            ripple.style.left = (e.clientX - rect.left - 50) + 'px';
+            ripple.style.top = (e.clientY - rect.top - 50) + 'px';
+            
+            this.appendChild(ripple);
+            
+            setTimeout(() => {
+                ripple.remove();
+            }, 600);
+        }
+    });
+
+    // Add CSS for ripple animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes ripple {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+
+    // Input validation feedback
+    const inputs = document.querySelectorAll('.form-control');
+    inputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            if (this.value.trim() !== '' && this.validity.valid) {
+                this.style.borderColor = '#10b981';
+            }
+        });
+
+        input.addEventListener('focus', function() {
+            this.style.borderColor = '#667eea';
+        });
+
+        input.addEventListener('invalid', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#ef4444';
+            this.focus();
+        });
+    });
+
+    // Experience input validation
+    const experienceInput = document.querySelector('input[name="experience"]');
+    experienceInput.addEventListener('input', function() {
+        if (this.value < 0) {
+            this.value = 0;
+        } else if (this.value > 50) {
+            this.value = 50;
+        }
+    });
+
+    // Auto-focus on first input
+    window.addEventListener('load', function() {
+        document.querySelector('input[name="job_title"]').focus();
+    });
+
+    // Prevent form resubmission on page refresh
+    if (window.history.replaceState) {
+        window.history.replaceState(null, null, window.location.href);
+    }
+</script>
+{% endblock %}

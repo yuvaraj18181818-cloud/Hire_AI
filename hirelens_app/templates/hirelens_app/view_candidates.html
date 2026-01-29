@@ -1,0 +1,551 @@
+{% extends "hirelens_app/base.html" %}
+
+{% block title %}Candidates for {{ job.job_title }} - HireLens AI{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --gradient-success: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        --gradient-danger: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    }
+
+    .job-header {
+        background: var(--gradient-primary);
+        border-radius: 12px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .job-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 400px;
+        height: 400px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .stat-box {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        border: 2px solid #e5e7eb;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-box::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        transition: width 0.3s ease;
+    }
+
+    .stat-box:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-box:hover::before {
+        width: 100%;
+        opacity: 0.1;
+    }
+
+    .stat-box.high::before { background: #10b981; }
+    .stat-box.medium::before { background: #f59e0b; }
+    .stat-box.low::before { background: #ef4444; }
+    .stat-box.total::before { background: #667eea; }
+
+    .candidate-card {
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        background: white;
+        margin-bottom: 1rem;
+    }
+
+    .candidate-card:hover {
+        border-color: #667eea;
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.15);
+        transform: translateX(5px);
+    }
+
+    .score-badge {
+        position: relative;
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1.25rem;
+        border: 4px solid;
+    }
+
+    .score-badge.high {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        border-color: #10b981;
+        color: #065f46;
+    }
+
+    .score-badge.medium {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border-color: #f59e0b;
+        color: #92400e;
+    }
+
+    .score-badge.low {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        border-color: #ef4444;
+        color: #991b1b;
+    }
+
+    .skill-chip {
+        display: inline-block;
+        padding: 0.35rem 0.75rem;
+        margin: 0.25rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        background: #eff6ff;
+        color: #1e40af;
+        border: 1px solid #dbeafe;
+    }
+
+    .filter-section {
+        background: #f9fafb;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid #e5e7eb;
+    }
+
+    .filter-btn {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        border: 2px solid #e5e7eb;
+        background: white;
+        transition: all 0.3s ease;
+        font-weight: 500;
+        cursor: pointer;
+    }
+
+    .filter-btn:hover {
+        border-color: #667eea;
+        background: #eff6ff;
+        color: #667eea;
+    }
+
+    .filter-btn.active {
+        background: var(--gradient-primary);
+        color: white;
+        border-color: transparent;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+    }
+
+    .empty-icon {
+        width: 120px;
+        height: 120px;
+        margin: 0 auto 2rem;
+        background: var(--gradient-primary);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    @media (max-width: 768px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .action-buttons {
+            flex-direction: column;
+        }
+
+        .action-buttons .btn {
+            width: 100%;
+        }
+    }
+
+    .progress-ring {
+        width: 60px;
+        height: 60px;
+    }
+
+    .progress-ring circle {
+        transition: stroke-dashoffset 0.5s ease;
+        transform: rotate(-90deg);
+        transform-origin: 50% 50%;
+    }
+
+    .badge-status {
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block page_header %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <a href="{% url 'hr_dashboard' %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Back
+            </a>
+            <h2 class="mb-0">
+                <i class="bi bi-people text-primary me-2"></i>Candidates
+            </h2>
+        </div>
+        <p class="text-muted mb-0">Review and manage applicants for this position</p>
+    </div>
+    
+    <div class="d-flex gap-2">
+        <a href="{% url 'upload_resume' %}?job_id={{ job.id }}" class="btn btn-primary">
+            <i class="bi bi-cloud-upload me-2"></i> Add Candidate
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- Job Information Header -->
+<div class="job-header text-white p-4 mb-4 shadow-sm position-relative">
+    <div class="row align-items-center position-relative" style="z-index: 1;">
+        <div class="col-md-8">
+            <div class="d-flex align-items-start mb-3">
+                <div class="bg-white bg-opacity-25 rounded p-3 me-3">
+                    <i class="bi bi-briefcase" style="font-size: 2rem;"></i>
+                </div>
+                <div>
+                    <h3 class="mb-2 fw-bold">{{ job.job_title }}</h3>
+                    <p class="mb-1 opacity-90">
+                        <i class="bi bi-building me-2"></i>{{ job.hr.company_name }}
+                    </p>
+                    <p class="mb-0 opacity-75">
+                        <i class="bi bi-calendar3 me-2"></i>Posted {{ job.created_at|date:"M d, Y" }}
+                        <span class="mx-2">•</span>
+                        <i class="bi bi-award me-2"></i>{{ job.minimum_experience }}+ Years Experience
+                    </p>
+                </div>
+            </div>
+            <div class="mt-3">
+                <p class="mb-1 small opacity-75 text-uppercase fw-semibold">Required Skills</p>
+                <div>
+                    {% for skill in required_skills_list %}
+                        <span class="badge bg-white bg-opacity-25 me-1 mb-1">{{ skill }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+            <div class="bg-white bg-opacity-25 rounded p-3 d-inline-block">
+                <div class="display-4 fw-bold">{{ total_applicants }}</div>
+                <div class="small text-uppercase fw-semibold">Total Applicants</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Dashboard -->
+<div class="stats-grid mb-4">
+    <div class="stat-box total">
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <p class="text-muted mb-1 small fw-semibold text-uppercase">Total Applicants</p>
+                <h2 class="fw-bold mb-0">{{ total_applicants }}</h2>
+            </div>
+            <div class="bg-primary bg-opacity-10 p-3 rounded">
+                <i class="bi bi-people text-primary" style="font-size: 1.5rem;"></i>
+            </div>
+        </div>
+        <small class="text-muted mt-2 d-block">
+            <i class="bi bi-graph-up me-1"></i> All candidates
+        </small>
+    </div>
+
+    <div class="stat-box high">
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <p class="text-muted mb-1 small fw-semibold text-uppercase">High Match</p>
+                <h2 class="fw-bold mb-0 text-success">{{ high_match_count }}</h2>
+            </div>
+            <div class="bg-success bg-opacity-10 p-3 rounded">
+                <i class="bi bi-star text-success" style="font-size: 1.5rem;"></i>
+            </div>
+        </div>
+        <small class="text-muted mt-2 d-block">
+            <i class="bi bi-check-circle me-1"></i> 70% and above
+        </small>
+    </div>
+
+    <div class="stat-box medium">
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <p class="text-muted mb-1 small fw-semibold text-uppercase">Medium Match</p>
+                <h2 class="fw-bold mb-0 text-warning">{{ medium_match_count }}</h2>
+            </div>
+            <div class="bg-warning bg-opacity-10 p-3 rounded">
+                <i class="bi bi-dash-circle text-warning" style="font-size: 1.5rem;"></i>
+            </div>
+        </div>
+        <small class="text-muted mt-2 d-block">
+            <i class="bi bi-info-circle me-1"></i> 40% - 69%
+        </small>
+    </div>
+
+    <div class="stat-box low">
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <p class="text-muted mb-1 small fw-semibold text-uppercase">Low Match</p>
+                <h2 class="fw-bold mb-0 text-danger">{{ low_match_count }}</h2>
+            </div>
+            <div class="bg-danger bg-opacity-10 p-3 rounded">
+                <i class="bi bi-x-circle text-danger" style="font-size: 1.5rem;"></i>
+            </div>
+        </div>
+        <small class="text-muted mt-2 d-block">
+            <i class="bi bi-exclamation-circle me-1"></i> Below 40%
+        </small>
+    </div>
+</div>
+
+<!-- Filter Section -->
+<div class="filter-section">
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        <span class="fw-semibold text-muted me-2">Filter by:</span>
+        <button class="filter-btn active" data-filter="all">
+            All Candidates ({{ total_applicants }})
+        </button>
+        <button class="filter-btn" data-filter="high">
+            High Match ({{ high_match_count }})
+        </button>
+        <button class="filter-btn" data-filter="medium">
+            Medium Match ({{ medium_match_count }})
+        </button>
+        <button class="filter-btn" data-filter="low">
+            Low Match ({{ low_match_count }})
+        </button>
+    </div>
+</div>
+
+<!-- Candidates List -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-bottom py-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold">
+                <i class="bi bi-list-ul text-primary me-2"></i>Candidate List
+            </h5>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-light text-dark border">
+                    Avg Score: <strong>{{ avg_score }}%</strong>
+                </span>
+                <select class="form-select form-select-sm" id="sortSelect" style="width: auto;">
+                    <option value="score-desc">Score: High to Low</option>
+                    <option value="score-asc">Score: Low to High</option>
+                    <option value="date-desc">Date: Newest First</option>
+                    <option value="date-asc">Date: Oldest First</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card-body p-3">
+        {% if analyses %}
+            <div id="candidatesList">
+                {% for analysis in analyses %}
+                <div class="candidate-card p-3 {% if analysis.similarity_score >= 70 %}match-high{% elif analysis.similarity_score >= 40 %}match-medium{% else %}match-low{% endif %}" 
+                     data-score="{{ analysis.similarity_score }}"
+                     data-date="{{ analysis.analysis_time|date:'U' }}">
+                    
+                    <div class="row align-items-center">
+                        <!-- Score Badge -->
+                        <div class="col-auto">
+                            <div class="score-badge {% if analysis.similarity_score >= 70 %}high{% elif analysis.similarity_score >= 40 %}medium{% else %}low{% endif %}">
+                                {{ analysis.similarity_score|floatformat:0 }}%
+                            </div>
+                        </div>
+
+                        <!-- Candidate Info -->
+                        <div class="col">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h5 class="fw-bold mb-2">
+                                        <i class="bi bi-person-circle text-primary me-2"></i>
+                                        {{ analysis.candidate.name }}
+                                    </h5>
+                                    <div class="mb-2">
+                                        <small class="text-muted d-block">
+                                            <i class="bi bi-envelope me-1"></i> {{ analysis.candidate.email }}
+                                        </small>
+                                        <small class="text-muted d-block">
+                                            <i class="bi bi-telephone me-1"></i> {{ analysis.candidate.phone }}
+                                        </small>
+                                        <small class="text-muted d-block">
+                                            <i class="bi bi-calendar-plus me-1"></i> Applied {{ analysis.analysis_time|timesince }} ago
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <p class="text-muted mb-1 small fw-semibold">AI Summary</p>
+                                        <p class="small mb-0 text-secondary">
+                                            {{ analysis.ai_summary|truncatewords:20 }}
+                                        </p>
+                                    </div>
+                                    {% if analysis.skills_list %}
+                                    <div class="mt-2">
+                                        <p class="text-muted mb-1 small fw-semibold">Extracted Skills</p>
+                                        <div>
+                                            {% for skill in analysis.skills_list|slice:":5" %}
+                                                <span class="skill-chip">{{ skill }}</span>
+                                            {% endfor %}
+                                            {% if analysis.skills_list|length > 5 %}
+                                                <span class="skill-chip">+{{ analysis.skills_list|length|add:"-5" }} more</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="action-buttons mt-3">
+                                <a href="{% url 'analysis_result' analysis.id %}" 
+                                   class="btn btn-sm btn-primary">
+                                    <i class="bi bi-file-text me-1"></i> Full Analysis
+                                </a>
+                                <a href="{{ analysis.candidate.resume.url }}" 
+                                   class="btn btn-sm btn-outline-secondary"
+                                   target="_blank">
+                                    <i class="bi bi-download me-1"></i> Resume
+                                </a>
+                                {% if analysis.questions_count > 0 %}
+                                <a href="{% url 'interview' analysis.id %}" 
+                                   class="btn btn-sm btn-outline-info">
+                                    <i class="bi bi-chat-dots me-1"></i> Interview ({{ analysis.questions_count }})
+                                </a>
+                                {% endif %}
+                                <span class="badge badge-status {% if analysis.interviews_count > 0 %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {% if analysis.interviews_count > 0 %}
+                                        <i class="bi bi-check-circle me-1"></i> Interviewed
+                                    {% else %}
+                                        <i class="bi bi-clock me-1"></i> Pending
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">
+                    <i class="bi bi-inbox text-white" style="font-size: 3rem;"></i>
+                </div>
+                <h4 class="fw-bold mb-3">No Candidates Yet</h4>
+                <p class="text-muted mb-4">
+                    No one has applied for this position yet. Start by uploading candidate resumes.
+                </p>
+                <a href="{% url 'upload_resume' %}?job_id={{ job.id }}" class="btn btn-primary btn-lg">
+                    <i class="bi bi-cloud-upload me-2"></i> Upload First Candidate
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Filter functionality
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    const candidateCards = document.querySelectorAll('.candidate-card');
+
+    filterButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Update active state
+            filterButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+
+            // Filter candidates
+            const filter = this.dataset.filter;
+            candidateCards.forEach(card => {
+                if (filter === 'all') {
+                    card.style.display = 'block';
+                } else {
+                    const matchClass = `match-${filter}`;
+                    card.style.display = card.classList.contains(matchClass) ? 'block' : 'none';
+                }
+            });
+        });
+    });
+
+    // Sort functionality
+    const sortSelect = document.getElementById('sortSelect');
+    if (sortSelect) {
+        sortSelect.addEventListener('change', function() {
+            const container = document.getElementById('candidatesList');
+            const cards = Array.from(candidateCards);
+            
+            cards.sort((a, b) => {
+                const sortBy = this.value;
+                
+                if (sortBy === 'score-desc') {
+                    return parseFloat(b.dataset.score) - parseFloat(a.dataset.score);
+                } else if (sortBy === 'score-asc') {
+                    return parseFloat(a.dataset.score) - parseFloat(b.dataset.score);
+                } else if (sortBy === 'date-desc') {
+                    return parseInt(b.dataset.date) - parseInt(a.dataset.date);
+                } else if (sortBy === 'date-asc') {
+                    return parseInt(a.dataset.date) - parseInt(b.dataset.date);
+                }
+            });
+            
+            // Re-append sorted cards
+            cards.forEach(card => container.appendChild(card));
+        });
+    }
+
+    // Initialize tooltips if Bootstrap is available
+    if (typeof bootstrap !== 'undefined') {
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function(tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
+});
+</script>
+{% endblock %}

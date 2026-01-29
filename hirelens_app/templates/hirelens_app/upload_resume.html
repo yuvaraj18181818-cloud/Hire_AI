@@ -1,0 +1,864 @@
+{% extends "hirelens_app/base.html" %}
+
+{% block title %}Upload Resume - HireLens AI{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --gradient-success: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --shadow-medium: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        --shadow-large: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+        padding: 2rem 0;
+    }
+
+    .upload-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+
+    /* Page Header */
+    .page-header {
+        text-align: center;
+        margin-bottom: 3rem;
+        animation: fadeInDown 0.6s ease-out;
+    }
+
+    .page-header h2 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        background: var(--gradient-primary);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 0.75rem;
+        display: inline-block;
+    }
+
+    .page-header p {
+        color: #64748b;
+        font-size: 1.1rem;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    .header-icon {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 1.5rem;
+        background: var(--gradient-primary);
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        color: white;
+        box-shadow: var(--shadow-medium);
+        animation: bounceIn 0.8s ease-out;
+    }
+
+    /* Error Alert */
+    .error-alert {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        border-left: 4px solid #ef4444;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        box-shadow: var(--shadow-soft);
+        animation: shake 0.5s ease-out;
+    }
+
+    .error-alert i {
+        font-size: 1.5rem;
+        color: #ef4444;
+    }
+
+    .error-alert p {
+        margin: 0;
+        color: #991b1b;
+        font-weight: 600;
+        flex: 1;
+    }
+
+    /* Form Card */
+    .form-card {
+        background: white;
+        border-radius: 24px;
+        padding: 3rem;
+        box-shadow: var(--shadow-large);
+        position: relative;
+        overflow: hidden;
+        animation: fadeInUp 0.6s ease-out;
+    }
+
+    .form-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 400px;
+        height: 400px;
+        background: var(--gradient-primary);
+        opacity: 0.03;
+        border-radius: 50%;
+        transform: translate(30%, -30%);
+    }
+
+    .form-card::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 300px;
+        height: 300px;
+        background: var(--gradient-success);
+        opacity: 0.03;
+        border-radius: 50%;
+        transform: translate(-30%, 30%);
+    }
+
+    /* Form Content */
+    .form-content {
+        position: relative;
+        z-index: 1;
+    }
+
+    /* Form Groups */
+    .form-group {
+        margin-bottom: 2rem;
+        animation: fadeInUp 0.6s ease-out backwards;
+    }
+
+    .form-group:nth-child(1) { animation-delay: 0.1s; }
+    .form-group:nth-child(2) { animation-delay: 0.2s; }
+    .form-group:nth-child(3) { animation-delay: 0.3s; }
+    .form-group:nth-child(4) { animation-delay: 0.4s; }
+    .form-group:nth-child(5) { animation-delay: 0.5s; }
+
+    .form-group label {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 0.75rem;
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .form-group label i {
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #e0e7ff 0%, #dbeafe 100%);
+        color: #667eea;
+        border-radius: 6px;
+        font-size: 0.875rem;
+    }
+
+    .form-group label .required {
+        color: #ef4444;
+        margin-left: 0.25rem;
+    }
+
+    /* Input Fields */
+    .form-control {
+        width: 100%;
+        padding: 1rem 1.25rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: #f8fafc;
+        font-family: inherit;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #667eea;
+        background: white;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        transform: translateY(-2px);
+    }
+
+    .form-control:hover {
+        border-color: #cbd5e1;
+    }
+
+    /* Select Dropdown */
+    select.form-control {
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23667eea' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 1rem center;
+        background-size: 20px;
+        padding-right: 3rem;
+    }
+
+    select.form-control option {
+        padding: 0.5rem;
+    }
+
+    /* File Upload */
+    .file-upload-wrapper {
+        position: relative;
+    }
+
+    .file-upload-input {
+        opacity: 0;
+        position: absolute;
+        z-index: -1;
+    }
+
+    .file-upload-label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem 2rem;
+        border: 3px dashed #cbd5e1;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .file-upload-label::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--gradient-primary);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .file-upload-label:hover {
+        border-color: #667eea;
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-medium);
+    }
+
+    .file-upload-label:hover::before {
+        opacity: 0.05;
+    }
+
+    .file-upload-icon {
+        width: 80px;
+        height: 80px;
+        margin-bottom: 1.5rem;
+        background: var(--gradient-primary);
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        color: white;
+        position: relative;
+        z-index: 1;
+        transition: transform 0.3s ease;
+    }
+
+    .file-upload-label:hover .file-upload-icon {
+        transform: scale(1.1) rotate(5deg);
+    }
+
+    .file-upload-text {
+        position: relative;
+        z-index: 1;
+    }
+
+    .file-upload-text h4 {
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 0.5rem;
+        font-size: 1.25rem;
+    }
+
+    .file-upload-text p {
+        color: #64748b;
+        margin-bottom: 0.75rem;
+        font-size: 0.95rem;
+    }
+
+    .file-upload-formats {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .format-badge {
+        background: linear-gradient(135deg, #e0e7ff 0%, #dbeafe 100%);
+        color: #667eea;
+        padding: 0.375rem 0.875rem;
+        border-radius: 50px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .file-name-display {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        border-radius: 12px;
+        display: none;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .file-name-display.active {
+        display: flex;
+    }
+
+    .file-name-display i {
+        color: #065f46;
+        font-size: 1.5rem;
+    }
+
+    .file-name-display span {
+        flex: 1;
+        color: #065f46;
+        font-weight: 600;
+    }
+
+    /* Submit Button */
+    .submit-btn-wrapper {
+        margin-top: 2.5rem;
+        animation: fadeInUp 0.6s ease-out 0.6s backwards;
+    }
+
+    .submit-btn {
+        width: 100%;
+        padding: 1.5rem 2rem;
+        background: var(--gradient-primary);
+        color: white;
+        border: none;
+        border-radius: 16px;
+        font-size: 1.125rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--shadow-medium);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .submit-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.3);
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+    }
+
+    .submit-btn:hover::before {
+        width: 400px;
+        height: 400px;
+    }
+
+    .submit-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-large);
+    }
+
+    .submit-btn:active {
+        transform: translateY(-1px);
+    }
+
+    .submit-btn i {
+        margin-left: 0.75rem;
+        transition: transform 0.3s ease;
+    }
+
+    .submit-btn:hover i {
+        transform: translateX(5px);
+    }
+
+    /* Info Card */
+    .info-card {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border-left: 4px solid #f59e0b;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-top: 2rem;
+        display: flex;
+        align-items: start;
+        gap: 1rem;
+        box-shadow: var(--shadow-soft);
+    }
+
+    .info-card i {
+        font-size: 1.5rem;
+        color: #b45309;
+        flex-shrink: 0;
+        margin-top: 0.25rem;
+    }
+
+    .info-card-content h5 {
+        color: #78350f;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        font-size: 1rem;
+    }
+
+    .info-card-content ul {
+        margin: 0;
+        padding-left: 1.25rem;
+        color: #92400e;
+    }
+
+    .info-card-content ul li {
+        margin-bottom: 0.375rem;
+        font-size: 0.9rem;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        body {
+            padding: 1rem 0;
+        }
+
+        .upload-container {
+            padding: 0 0.75rem;
+        }
+
+        .page-header h2 {
+            font-size: 2rem;
+        }
+
+        .header-icon {
+            width: 60px;
+            height: 60px;
+            font-size: 2rem;
+        }
+
+        .form-card {
+            padding: 2rem 1.5rem;
+            border-radius: 16px;
+        }
+
+        .file-upload-label {
+            padding: 2rem 1.5rem;
+        }
+
+        .file-upload-icon {
+            width: 60px;
+            height: 60px;
+            font-size: 2rem;
+        }
+
+        .submit-btn {
+            padding: 1.25rem 1.5rem;
+            font-size: 1rem;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .page-header h2 {
+            font-size: 1.75rem;
+        }
+
+        .page-header p {
+            font-size: 1rem;
+        }
+
+        .form-card {
+            padding: 1.5rem 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .file-upload-formats {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .format-badge {
+            text-align: center;
+        }
+    }
+
+    /* Animations */
+    @keyframes fadeInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes bounceIn {
+        0% {
+            opacity: 0;
+            transform: scale(0.3);
+        }
+        50% {
+            transform: scale(1.05);
+        }
+        70% {
+            transform: scale(0.9);
+        }
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    @keyframes shake {
+        0%, 100% {
+            transform: translateX(0);
+        }
+        10%, 30%, 50%, 70%, 90% {
+            transform: translateX(-5px);
+        }
+        20%, 40%, 60%, 80% {
+            transform: translateX(5px);
+        }
+    }
+
+    /* Loading State */
+    .submit-btn.loading {
+        pointer-events: none;
+        opacity: 0.7;
+    }
+
+    .submit-btn.loading::after {
+        content: '';
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        top: 50%;
+        left: 50%;
+        margin-left: -10px;
+        margin-top: -10px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="upload-container">
+    
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="header-icon">
+            <i class="fas fa-file-upload"></i>
+        </div>
+        <h2>Upload Candidate Resume</h2>
+        <p>Let our AI analyze and match candidates with job requirements instantly</p>
+    </div>
+
+    <!-- Error Alert -->
+    {% if error %}
+    <div class="error-alert">
+        <i class="fas fa-exclamation-circle"></i>
+        <p>{{ error }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Form Card -->
+    <div class="form-card">
+        <div class="form-content">
+            <form method="post" enctype="multipart/form-data" id="uploadForm">
+                {% csrf_token %}
+
+                <!-- Candidate Name -->
+                <div class="form-group">
+                    <label>
+                        <i class="fas fa-user"></i>
+                        Candidate Name
+                        <span class="required">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        name="name" 
+                        class="form-control" 
+                        placeholder="Enter full name"
+                        required
+                    >
+                </div>
+
+                <!-- Email -->
+                <div class="form-group">
+                    <label>
+                        <i class="fas fa-envelope"></i>
+                        Email Address
+                        <span class="required">*</span>
+                    </label>
+                    <input 
+                        type="email" 
+                        name="email" 
+                        class="form-control" 
+                        placeholder="candidate@example.com"
+                        required
+                    >
+                </div>
+
+                <!-- Phone -->
+                <div class="form-group">
+                    <label>
+                        <i class="fas fa-phone"></i>
+                        Phone Number
+                        <span class="required">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        name="phone" 
+                        class="form-control" 
+                        placeholder="+1 (555) 000-0000"
+                        required
+                    >
+                </div>
+
+                <!-- Job Selection -->
+                <div class="form-group">
+                    <label>
+                        <i class="fas fa-briefcase"></i>
+                        Job Requirement
+                        <span class="required">*</span>
+                    </label>
+                    <select name="job" class="form-control" required>
+                        <option value="">-- Select a Job Position --</option>
+                        {% for job in jobs %}
+                            <option value="{{ job.id }}">{{ job.job_title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- File Upload -->
+                <div class="form-group">
+                    <label>
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        Resume Upload
+                        <span class="required">*</span>
+                    </label>
+                    <div class="file-upload-wrapper">
+                        <input 
+                            type="file" 
+                            name="resume" 
+                            id="resume" 
+                            class="file-upload-input"
+                            accept=".pdf,.png,.jpg,.jpeg" 
+                            required
+                        >
+                        <label for="resume" class="file-upload-label">
+                            <div class="file-upload-icon">
+                                <i class="fas fa-file-upload"></i>
+                            </div>
+                            <div class="file-upload-text">
+                                <h4>Drop your resume here or click to browse</h4>
+                                <p>Maximum file size: 10MB</p>
+                                <div class="file-upload-formats">
+                                    <span class="format-badge">PDF</span>
+                                    <span class="format-badge">PNG</span>
+                                    <span class="format-badge">JPG</span>
+                                    <span class="format-badge">JPEG</span>
+                                </div>
+                            </div>
+                        </label>
+                        <div class="file-name-display" id="fileNameDisplay">
+                            <i class="fas fa-check-circle"></i>
+                            <span id="fileName"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="submit-btn-wrapper">
+                    <button type="submit" class="submit-btn" id="submitBtn">
+                        <span>Analyze Resume</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Info Card -->
+            <div class="info-card">
+                <i class="fas fa-info-circle"></i>
+                <div class="info-card-content">
+                    <h5>What happens next?</h5>
+                    <ul>
+                        <li>AI analyzes the resume against job requirements</li>
+                        <li>Skills are matched and gaps identified</li>
+                        <li>Personalized course recommendations generated</li>
+                        <li>Comprehensive analysis report created</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // File upload handling
+    const fileInput = document.getElementById('resume');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    const fileNameSpan = document.getElementById('fileName');
+    const uploadForm = document.getElementById('uploadForm');
+    const submitBtn = document.getElementById('submitBtn');
+
+    fileInput.addEventListener('change', function(e) {
+        if (this.files && this.files[0]) {
+            const fileName = this.files[0].name;
+            const fileSize = (this.files[0].size / 1024 / 1024).toFixed(2); // MB
+            
+            fileNameSpan.textContent = `${fileName} (${fileSize} MB)`;
+            fileNameDisplay.classList.add('active');
+        } else {
+            fileNameDisplay.classList.remove('active');
+        }
+    });
+
+    // Drag and drop functionality
+    const fileLabel = document.querySelector('.file-upload-label');
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        fileLabel.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        fileLabel.addEventListener(eventName, () => {
+            fileLabel.style.borderColor = '#667eea';
+            fileLabel.style.transform = 'translateY(-4px)';
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        fileLabel.addEventListener(eventName, () => {
+            fileLabel.style.borderColor = '';
+            fileLabel.style.transform = '';
+        });
+    });
+
+    fileLabel.addEventListener('drop', function(e) {
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            // Trigger change event
+            const event = new Event('change', { bubbles: true });
+            fileInput.dispatchEvent(event);
+        }
+    });
+
+    // Form submission with loading state
+    uploadForm.addEventListener('submit', function(e) {
+        submitBtn.classList.add('loading');
+        submitBtn.querySelector('span').textContent = 'Analyzing...';
+    });
+
+    // Add ripple effect to submit button
+    submitBtn.addEventListener('click', function(e) {
+        if (!submitBtn.classList.contains('loading')) {
+            const ripple = document.createElement('span');
+            ripple.style.position = 'absolute';
+            ripple.style.borderRadius = '50%';
+            ripple.style.background = 'rgba(255, 255, 255, 0.6)';
+            ripple.style.width = '100px';
+            ripple.style.height = '100px';
+            ripple.style.transform = 'scale(0)';
+            ripple.style.animation = 'ripple 0.6s ease-out';
+            
+            const rect = this.getBoundingClientRect();
+            ripple.style.left = (e.clientX - rect.left - 50) + 'px';
+            ripple.style.top = (e.clientY - rect.top - 50) + 'px';
+            
+            this.appendChild(ripple);
+            
+            setTimeout(() => {
+                ripple.remove();
+            }, 600);
+        }
+    });
+
+    // Add CSS for ripple animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes ripple {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+
+    // Input validation feedback
+    const inputs = document.querySelectorAll('.form-control');
+    inputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            if (this.value.trim() !== '') {
+                this.style.borderColor = '#10b981';
+            }
+        });
+
+        input.addEventListener('focus', function() {
+            this.style.borderColor = '#667eea';
+        });
+
+        input.addEventListener('invalid', function() {
+            this.style.borderColor = '#ef4444';
+        });
+    });
+</script>
+{% endblock %}
