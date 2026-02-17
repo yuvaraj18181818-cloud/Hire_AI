@@ -1,5 +1,6 @@
 Django
 google-generativeai
+pdfplumber
 openai
 gunicorn
 dotenv
