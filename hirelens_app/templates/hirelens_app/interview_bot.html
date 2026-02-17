@@ -1,327 +1,1340 @@
 {% extends "hirelens_app/base.html" %}
 
 {% block content %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
 <style>
-    /* Chat Container Styles */
-    .chat-container {
-        height: 65vh;
-        overflow-y: auto;
-        background: #f8f9fa;
-        padding: 20px;
-        border-radius: 12px;
-        border: 1px solid #e9ecef;
+    /* ══════════════════════════════════════════
+       DESIGN TOKENS
+    ══════════════════════════════════════════ */
+    :root {
+        --night:    #080c18;
+        --navy:     #0f172a;
+        --surface:  #ffffff;
+        --border:   #e2e8f0;
+        --text-dark:#0f172a;
+        --text-soft:#64748b;
+        --blue:     #3b82f6;
+        --violet:   #7c3aed;
+        --green:    #10b981;
+        --red:      #ef4444;
+        --amber:    #f59e0b;
+        --primary:  #3b82f6;
+        --ease: cubic-bezier(0.4,0,0.2,1);
     }
-    .message {
-        max-width: 80%;
-        margin-bottom: 15px;
-        padding: 12px 16px;
-        border-radius: 12px;
+
+    body { font-family: 'Sora', sans-serif; }
+
+    /* ── page background ── */
+    body {
+        background: #080c18 !important;
+    }
+
+    .interview-page {
+        background: linear-gradient(135deg, #08091a 0%, #0f172a 55%, #111827 100%);
+        min-height: calc(100vh - 64px);
+        padding: 1.5rem 0 3rem;
+    }
+
+    /* ══════════════════════════════════════════
+       3D AVATAR CONTAINER
+    ══════════════════════════════════════════ */
+    #avatar-container {
+        width: 100%;
+        height: 400px;
+        background: radial-gradient(ellipse at 32% 28%, #1a2040 0%, #0f1628 42%, #060c1a 100%);
+        border-radius: 16px;
+        margin-bottom: 10px;
         position: relative;
+        overflow: hidden;
+        box-shadow:
+            inset 0 0 40px rgba(0,0,0,0.5),
+            0 8px 32px rgba(0,0,0,0.55),
+            0 0 0 1px rgba(255,255,255,0.05);
+    }
+
+    /* Scanning beam */
+    #avatar-container::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(59,130,246,0.65), rgba(124,58,237,0.45), transparent);
+        animation: scanBeam 5s ease-in-out infinite;
+        z-index: 5;
+        pointer-events: none;
+    }
+    @keyframes scanBeam {
+        0%  { top: 0%;   opacity: 0.9; }
+        80% { top: 95%;  opacity: 0.4; }
+        100%{ top: 100%; opacity: 0;   }
+    }
+
+    /* Inner border frame */
+    #avatar-container::after {
+        content: '';
+        position: absolute;
+        inset: 12px;
+        border: 1px solid rgba(59,130,246,0.13);
+        border-radius: 8px;
+        pointer-events: none;
+        z-index: 4;
+    }
+
+    /* LIVE badge */
+    .avatar-live-badge {
+        position: absolute;
+        top: 12px; left: 12px;
+        z-index: 10;
+        display: flex; align-items: center; gap: 0.38rem;
+        background: rgba(8,12,24,0.72);
+        border: 1px solid rgba(239,68,68,0.32);
+        border-radius: 20px;
+        padding: 0.2rem 0.6rem;
+        font-family: 'Sora', sans-serif;
+        font-size: 0.66rem; font-weight: 700;
+        color: rgba(255,255,255,0.8);
+        letter-spacing: 0.1em; text-transform: uppercase;
+        backdrop-filter: blur(8px);
+    }
+    .live-dot {
+        width: 6px; height: 6px; border-radius: 50%;
+        background: var(--red);
+        animation: livePulse 1.4s ease-in-out infinite;
+    }
+    @keyframes livePulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.6)} }
+
+    /* AI badge */
+    .avatar-ai-badge {
+        position: absolute;
+        top: 12px; right: 12px;
+        z-index: 10;
+        background: rgba(8,12,24,0.72);
+        border: 1px solid rgba(59,130,246,0.26);
+        border-radius: 20px;
+        padding: 0.2rem 0.6rem;
+        font-family: 'Sora', sans-serif;
+        font-size: 0.66rem; font-weight: 700;
+        color: rgba(147,197,253,0.9);
+        letter-spacing: 0.1em; text-transform: uppercase;
+        backdrop-filter: blur(8px);
+        display: flex; align-items: center; gap: 0.3rem;
+    }
+
+    /* Status text */
+    #status-text {
+        font-family: 'Sora', sans-serif;
+        font-size: 0.76rem; font-weight: 600;
+        letter-spacing: 0.05em;
+        color: rgba(147,197,253,0.65);
+        text-transform: uppercase;
+    }
+
+    /* ══════════════════════════════════════════
+       CAMERA PREVIEW — original code untouched
+    ══════════════════════════════════════════ */
+    #camera-preview {
+        position: absolute;
+        bottom: 15px; right: 15px;
+        width: 140px; height: 100px;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 2px solid rgba(255,255,255,0.2);
+        display: none;
+        z-index: 10;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+    #camera-preview::before {
+        content: '● CAM';
+        position: absolute; top: 4px; left: 6px;
+        font-family: 'Sora', sans-serif;
+        font-size: 0.58rem; font-weight: 700;
+        color: rgba(255,65,65,0.9);
+        letter-spacing: 0.06em; z-index: 2;
+        text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    }
+    #camera-preview video { width:100%; height:100%; object-fit:cover; }
+
+    /* ══════════════════════════════════════════
+       CHAT PANEL
+    ══════════════════════════════════════════ */
+    .chat-panel {
+        background: rgba(15,23,42,0.55);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 18px;
+        overflow: hidden;
+        backdrop-filter: blur(16px);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.04);
+    }
+
+    /* Panel header */
+    .chat-panel-header {
+        background: rgba(8,12,24,0.45);
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+        padding: 0.8rem 1.2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .session-title {
+        font-family: 'Sora', sans-serif;
+        font-weight: 700; font-size: 0.88rem;
+        color: white;
+        display: flex; align-items: center; gap: 0.45rem;
+    }
+    .session-title-dot {
+        width: 7px; height: 7px; border-radius: 50%;
+        background: var(--green);
+        animation: livePulse 2s ease-in-out infinite;
+    }
+
+    .chat-controls { display: flex; align-items: center; gap: 0.4rem; }
+
+    /* ══════════════════════════════════════════
+       TIMER — visual only upgrade
+    ══════════════════════════════════════════ */
+    .timer-box {
+        font-family: 'Sora', sans-serif;
+        font-weight: 700; font-size: 0.78rem;
+        color: #fca5a5;
+        background: rgba(239,68,68,0.12);
+        padding: 0.28rem 0.7rem;
+        border-radius: 7px;
+        border: 1px solid rgba(239,68,68,0.22);
+        min-width: 54px; text-align: center;
+        letter-spacing: 0.06em;
+    }
+
+    /* ══════════════════════════════════════════
+       SESSION BUTTONS
+    ══════════════════════════════════════════ */
+    .btn-outline-primary.btn-sm {
+        font-family: 'Sora', sans-serif !important;
+        font-size: 0.74rem !important; font-weight: 600 !important;
+        border: 1px solid rgba(59,130,246,0.32) !important;
+        color: rgba(147,197,253,0.85) !important;
+        background: rgba(59,130,246,0.07) !important;
+        border-radius: 7px !important; padding: 0.3rem 0.65rem !important;
+        transition: all 0.2s var(--ease) !important;
+    }
+    .btn-outline-primary.btn-sm:hover {
+        background: rgba(59,130,246,0.18) !important;
+        color: white !important;
+        border-color: rgba(59,130,246,0.5) !important;
+    }
+    .btn-success.btn-sm {
+        font-family: 'Sora', sans-serif !important;
+        font-size: 0.74rem !important; font-weight: 600 !important;
+        background: rgba(16,185,129,0.18) !important;
+        border: 1px solid rgba(16,185,129,0.38) !important;
+        color: #6ee7b7 !important; border-radius: 7px !important;
+    }
+    .btn-outline-danger.btn-sm {
+        font-family: 'Sora', sans-serif !important;
+        font-size: 0.74rem !important; font-weight: 600 !important;
+        border: 1px solid rgba(239,68,68,0.3) !important;
+        color: rgba(252,165,165,0.85) !important;
+        background: rgba(239,68,68,0.07) !important;
+        border-radius: 7px !important; padding: 0.3rem 0.65rem !important;
+        transition: all 0.2s var(--ease) !important;
+    }
+    .btn-outline-danger.btn-sm:hover {
+        background: rgba(239,68,68,0.18) !important;
+        color: #fca5a5 !important;
+        border-color: rgba(239,68,68,0.5) !important;
+    }
+
+    /* ══════════════════════════════════════════
+       CHAT CONTAINER
+    ══════════════════════════════════════════ */
+    .chat-container {
+        height: 300px;
+        overflow-y: auto;
+        background: rgba(8,12,24,0.28);
+        padding: 16px;
+        border-radius: 0;
+        border: none;
+    }
+    .chat-container::-webkit-scrollbar { width: 3px; }
+    .chat-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+    .message {
+        max-width: 80%; margin-bottom: 12px;
+        padding: 10px 14px; border-radius: 12px;
         animation: fadeIn 0.3s ease;
+        font-size: 0.86rem; line-height: 1.65;
+        font-family: 'Sora', sans-serif;
     }
     .message.ai {
-        background: white;
-        color: #333;
-        border-bottom-left-radius: 2px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        background: rgba(30,41,59,0.82);
+        color: rgba(226,232,240,0.9);
+        border: 1px solid rgba(255,255,255,0.07);
         align-self: flex-start;
+        border-bottom-left-radius: 3px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
+    .message.ai strong { color: #93c5fd; }
     .message.candidate {
-        background: var(--primary);
-        color: white;
-        border-bottom-right-radius: 2px;
+        background: linear-gradient(135deg, rgba(59,130,246,0.35), rgba(99,102,241,0.3));
+        color: rgba(226,232,240,0.95);
+        border: 1px solid rgba(99,102,241,0.22);
         margin-left: auto;
+        border-bottom-right-radius: 3px;
+        box-shadow: 0 2px 8px rgba(59,130,246,0.12);
     }
-    
-    /* Dynamic Microphone Button */
+    .message.candidate strong { color: #a5b4fc; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ══════════════════════════════════════════
+       INPUT AREA
+    ══════════════════════════════════════════ */
+    .card.mt-3.border-0.shadow-sm {
+        background: rgba(8,12,24,0.5) !important;
+        border: none !important;
+        border-top: 1px solid rgba(255,255,255,0.07) !important;
+        border-radius: 0 0 18px 18px !important;
+        box-shadow: none !important;
+        margin-top: 0 !important;
+    }
+    .card.mt-3.border-0.shadow-sm .card-body { padding: 11px 13px !important; }
+
+    #user-input {
+        font-family: 'Sora', sans-serif !important; font-size: 0.85rem !important;
+        background: rgba(255,255,255,0.07) !important;
+        color: rgba(226,232,240,0.9) !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+        border-radius: 22px !important; height: 44px !important;
+        padding: 0 1rem !important;
+        transition: all 0.2s var(--ease) !important;
+    }
+    #user-input::placeholder { color: rgba(148,163,184,0.4) !important; }
+    #user-input:focus {
+        background: rgba(255,255,255,0.1) !important;
+        border-color: rgba(59,130,246,0.42) !important;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1) !important;
+        color: white !important; outline: none !important;
+    }
+
     .mic-btn {
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s;
-        font-size: 1.5rem;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-        border: 2px solid #e2e8f0;
+        width: 44px !important; height: 44px !important;
+        border-radius: 50% !important;
+        display: flex !important; align-items: center !important; justify-content: center !important;
+        transition: all 0.2s var(--ease) !important;
+        font-size: 1.1rem !important;
+        border: 1px solid rgba(255,255,255,0.12) !important;
+        background: rgba(255,255,255,0.07) !important;
+        color: rgba(226,232,240,0.8) !important;
+        flex-shrink: 0; box-shadow: none !important;
     }
-    .mic-btn:hover { transform: scale(1.05); }
-    
-    /* Listening State (Red Pulse) */
+    .mic-btn:hover { transform: scale(1.08) !important; background: rgba(255,255,255,0.12) !important; }
     .mic-btn.listening {
-        background-color: #ef4444 !important;
-        color: white !important;
-        border-color: #ef4444 !important;
+        background: rgba(239,68,68,0.22) !important;
+        border-color: rgba(239,68,68,0.5) !important;
+        color: #fca5a5 !important;
         animation: pulse-red 1.5s infinite;
     }
-    @keyframes pulse-red {
-        0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-        70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-    }
-
-    /* Processing State (Yellow Pulse - Waiting for Silence Timer) */
     .mic-btn.waiting {
-        background-color: #f59e0b !important;
-        color: white !important;
-        border-color: #f59e0b !important;
+        background: rgba(245,158,11,0.18) !important;
+        border-color: rgba(245,158,11,0.4) !important;
+        color: #fcd34d !important;
         animation: pulse-yellow 1.5s infinite;
     }
-    @keyframes pulse-yellow {
-        0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
-        70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    @keyframes pulse-red    { 0%{box-shadow:0 0 0 0 rgba(239,68,68,0.4)} 70%{box-shadow:0 0 0 15px rgba(239,68,68,0)} 100%{box-shadow:0 0 0 0 rgba(239,68,68,0)} }
+    @keyframes pulse-yellow { 0%{box-shadow:0 0 0 0 rgba(245,158,11,0.4)} 70%{box-shadow:0 0 0 10px rgba(245,158,11,0)} 100%{box-shadow:0 0 0 0 rgba(245,158,11,0)} }
+
+    #send-btn {
+        background: linear-gradient(135deg, #3b82f6, #6366f1) !important;
+        border: none !important;
+        width: 44px !important; height: 44px !important;
+        border-radius: 50% !important;
+        box-shadow: 0 4px 12px rgba(59,130,246,0.35) !important;
+        transition: all 0.2s var(--ease) !important;
+        flex-shrink: 0;
+    }
+    #send-btn:hover { transform: scale(1.08) !important; box-shadow: 0 6px 18px rgba(59,130,246,0.5) !important; }
+
+    /* ══════════════════════════════════════════
+       END SESSION MODAL
+    ══════════════════════════════════════════ */
+    .end-session-overlay {
+        display: none;
+        position: fixed; top:0; left:0; width:100%; height:100%;
+        background: rgba(0,0,0,0.65);
+        backdrop-filter: blur(8px);
+        z-index: 9999;
+        justify-content: center; align-items: center;
+    }
+    .end-session-overlay.active { display: flex; }
+
+    .end-session-modal {
+        background: #111827;
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 20px; padding: 2.25rem;
+        max-width: 400px; width: 90%; text-align: center;
+        box-shadow: 0 32px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+        animation: modalIn 0.22s var(--ease);
+    }
+    @keyframes modalIn { from{opacity:0;transform:scale(0.94) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
+
+    .modal-warning-icon {
+        width: 52px; height: 52px;
+        background: rgba(239,68,68,0.12);
+        border: 1px solid rgba(239,68,68,0.24);
+        border-radius: 13px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.35rem; color: #fca5a5;
+        margin: 0 auto 1.15rem;
+    }
+    .end-session-modal h5 {
+        font-family: 'Sora', sans-serif;
+        font-weight: 700; font-size: 1.02rem; color: white; margin-bottom: 0.45rem;
+    }
+    .end-session-modal p {
+        color: rgba(148,163,184,0.72); margin-bottom: 1.7rem;
+        font-size: 0.86rem; line-height: 1.6;
+    }
+    .end-session-modal .btn-outline-secondary {
+        font-family: 'Sora', sans-serif; font-size: 0.875rem; font-weight: 600;
+        border: 1px solid rgba(255,255,255,0.13) !important;
+        color: rgba(203,213,225,0.8) !important;
+        background: rgba(255,255,255,0.05) !important;
+        border-radius: 8px !important; transition: all 0.2s !important;
+    }
+    .end-session-modal .btn-outline-secondary:hover {
+        background: rgba(255,255,255,0.1) !important; color: white !important;
+    }
+    .end-session-modal .btn-danger {
+        font-family: 'Sora', sans-serif; font-size: 0.875rem; font-weight: 600;
+        background: linear-gradient(135deg,#ef4444,#dc2626) !important;
+        border: none !important; border-radius: 8px !important;
+        box-shadow: 0 4px 14px rgba(239,68,68,0.35) !important;
+        transition: all 0.2s var(--ease) !important;
+    }
+    .end-session-modal .btn-danger:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 8px 20px rgba(239,68,68,0.5) !important;
     }
 
-    .typing-dot {
-        display: inline-block; width: 6px; height: 6px;
-        background-color: #adb5bd; border-radius: 50%;
-        margin: 0 2px; animation: typing 1.4s infinite ease-in-out both;
+    /* ══════════════════════════════════════════
+       EVALUATING OVERLAY
+    ══════════════════════════════════════════ */
+    .evaluating-overlay {
+        display: none;
+        position: fixed; top:0; left:0; width:100%; height:100%;
+        background: rgba(5,8,20,0.97);
+        z-index: 10000;
+        justify-content: center; align-items: center;
+        flex-direction: column; color: white;
     }
-    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
-    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
-    @keyframes typing { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+    .evaluating-overlay.active { display: flex; }
+
+    .evaluating-spinner {
+        width: 58px; height: 58px;
+        border: 3px solid rgba(255,255,255,0.08);
+        border-top-color: #3b82f6; border-right-color: #7c3aed;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 1.5rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .eval-ring {
+        width: 88px; height: 88px;
+        border: 1px solid rgba(59,130,246,0.2);
+        border-radius: 50%; position: absolute;
+        animation: ringOut 2s ease-out infinite;
+    }
+    @keyframes ringOut { 0%{opacity:0.4;transform:scale(1)} 100%{opacity:0;transform:scale(1.5)} }
+
+    .eval-wrap {
+        position: relative;
+        display: flex; align-items: center; justify-content: center;
+        width: 88px; height: 88px; margin-bottom: 1.8rem;
+    }
+
+    .evaluating-overlay h4 {
+        font-family: 'Sora', sans-serif; font-size: 1.3rem; font-weight: 700;
+        background: linear-gradient(135deg,#93c5fd,#a78bfa);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        background-clip: text; margin-bottom: 0.45rem;
+    }
+    .evaluating-overlay p {
+        font-family: 'Sora', sans-serif;
+        color: rgba(148,163,184,0.62); font-size: 0.86rem; font-weight: 300;
+    }
+    .evaluating-overlay::before {
+        content: '';
+        position: absolute; inset: 0;
+        background-image: radial-gradient(circle, rgba(255,255,255,0.033) 1px, transparent 1px);
+        background-size: 30px 30px; pointer-events: none;
+    }
+    .eval-content { position: relative; z-index: 1; text-align: center; }
+
+    /* ══════════════════════════════════════════
+       RESPONSIVE
+    ══════════════════════════════════════════ */
+    @media (max-width: 768px) {
+        #avatar-container { height: 270px; }
+        .chat-container   { height: 210px; }
+        .chat-panel-header { flex-direction: column; align-items: flex-start; }
+        .chat-controls    { width: 100%; justify-content: flex-end; }
+    }
+    @media (max-width: 480px) {
+        #avatar-container { height: 210px; }
+        .timer-box        { font-size: 0.72rem; }
+    }
 </style>
 
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <h4 class="mb-0 fw-bold text-primary"><i class="fas fa-robot me-2"></i>AI Interviewer</h4>
-            <small class="text-muted">Live Session • Topic: <strong>{{ session.analysis.job.job_title }}</strong></small>
+<!-- End Session Confirmation Modal -->
+<div class="end-session-overlay" id="endSessionOverlay">
+    <div class="end-session-modal">
+        <div class="modal-warning-icon"><i class="bi bi-stop-circle"></i></div>
+        <h5>End Interview Session?</h5>
+        <p>This will stop the interview and begin AI evaluation of the candidate's performance.</p>
+        <div class="d-flex gap-2 justify-content-center">
+            <button class="btn btn-outline-secondary px-4" onclick="closeEndSessionModal()">Cancel</button>
+            <button class="btn btn-danger px-4" id="confirmEndBtn" onclick="confirmEndSession()">
+                <i class="bi bi-stop-circle me-1"></i> End &amp; Evaluate
+            </button>
         </div>
-        <div>
-            <span class="badge bg-light text-dark border me-2" id="connection-status">
-                <i class="fas fa-clock text-warning me-1"></i> 4s Silence Auto-Send
-            </span>
-            <a href="{% url 'analysis_result' session.analysis.id %}" class="btn btn-outline-danger btn-sm">End Session</a>
-        </div>
-    </div>
-
-    <div class="chat-container d-flex flex-column" id="chat-box">
-        {% for msg in session.chatmessage_set.all %}
-            <div class="message {% if msg.sender == 'ai' %}ai{% else %}candidate{% endif %}">
-                <strong>{% if msg.sender == 'ai' %}🤖 AI{% else %}👤 You{% endif %}:</strong><br>
-                {{ msg.message_text }}
-            </div>
-        {% endfor %}
-    </div>
-
-    <div class="card mt-3 border-0 shadow-sm">
-        <div class="card-body p-3">
-            <div class="d-flex align-items-center gap-3">
-                <button id="mic-btn" class="btn btn-light mic-btn" title="Start/Stop">
-                    <i class="fas fa-microphone"></i>
-                </button>
-
-                <input type="text" id="user-input" class="form-control border-0 bg-light rounded-pill px-4" 
-                       placeholder="Speaking... (Wait 4s to send automatically)" style="height: 50px;">
-                
-                <button id="send-btn" class="btn btn-primary rounded-circle" style="width: 50px; height: 50px;">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
-            </div>
-        </div>
-    </div>
-    
-    <div id="status-text" class="text-center mt-3 fw-medium text-muted">
-        Click the microphone to start. I will wait 4 seconds after you stop speaking before replying.
     </div>
 </div>
 
+<!-- Evaluating Overlay -->
+<div class="evaluating-overlay" id="evaluatingOverlay">
+    <div class="eval-content">
+        <div class="eval-wrap">
+            <div class="eval-ring"></div>
+            <div class="evaluating-spinner"></div>
+        </div>
+        <h4 class="fw-bold mb-2">Evaluating Interview...</h4>
+        <p class="opacity-75">AI is analyzing the conversation and generating feedback.</p>
+    </div>
+</div>
+
+<div class="interview-page">
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-5 position-relative">
+            <div id="avatar-container">
+                <div class="avatar-live-badge"><span class="live-dot"></span> Live</div>
+                <div class="avatar-ai-badge"><i class="bi bi-cpu-fill"></i> AI Interviewer</div>
+            </div>
+
+            <!-- CAMERA PREVIEW -->
+            <div id="camera-preview">
+                <video id="cameraVideo" autoplay muted></video>
+            </div>
+
+            <div id="status-text" class="text-center mt-2 fw-bold text-primary">Initializing 3D Environment...</div>
+        </div>
+
+        <div class="col-md-7">
+            <div class="chat-panel">
+                <!-- Header -->
+                <div class="chat-panel-header">
+                    <div class="session-title">
+                        <span class="session-title-dot"></span>
+                        Interview Session
+                    </div>
+                    <div class="chat-controls">
+                        <!-- TIMER -->
+                        <div class="timer-box" id="timerDisplay">00:00</div>
+
+                        <!-- CAMERA BUTTON -->
+                        <button class="btn btn-outline-primary btn-sm" id="cameraToggleBtn" title="Toggle webcam preview">
+                            <i class="bi bi-camera-video"></i>
+                        </button>
+
+                        <!-- END SESSION -->
+                        <button class="btn btn-outline-danger btn-sm" id="endSessionBtn" onclick="showEndSessionModal()">
+                            <i class="bi bi-stop-circle me-1"></i> End Session
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chat-container d-flex flex-column" id="chat-box">
+                    {% for msg in session.chatmessage_set.all %}
+                        <div class="message {% if msg.sender == 'ai' %}ai{% else %}candidate{% endif %}">
+                            <strong>{% if msg.sender == 'ai' %}🤖 AI{% else %}👤 You{% endif %}:</strong><br>{{ msg.message_text }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="card mt-3 border-0 shadow-sm" id="input-area">
+                    <div class="card-body p-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <button id="mic-btn" class="btn mic-btn"><i class="bi bi-mic-fill"></i></button>
+                            <input type="text" id="user-input" class="form-control border-0 bg-light rounded-pill px-4" placeholder="Speak or type..." style="height: 50px;">
+                            <button id="send-btn" class="btn btn-primary rounded-circle" style="width: 50px; height: 50px;"><i class="bi bi-send-fill"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
 <script>
+    // --- DJANGO VARIABLES ---
     const sessionId = "{{ session.id }}";
+    const endSessionUrl = "{% url 'end_interview_session' session.id %}";
+    let interviewEnded = false;
+    
+    // --- DOM ELEMENTS ---
     const chatBox = document.getElementById('chat-box');
     const userInput = document.getElementById('user-input');
-    const sendBtn = document.getElementById('send-btn');
     const micBtn = document.getElementById('mic-btn');
     const statusText = document.getElementById('status-text');
+    const sendBtn = document.getElementById('send-btn');
 
+    // --- STATE ---
     let isRecording = false;
     let silenceTimer = null;
-    let finalTranscript = ''; 
-    const SILENCE_TIMEOUT = 4000; // 4 Seconds Wait Time
-
-    chatBox.scrollTop = chatBox.scrollHeight;
+    const SILENCE_TIMEOUT = 4000;
 
     // ==========================================
-    // 1. ADVANCED SPEECH RECOGNITION (Continuous)
+    // 1. THREE.JS 3D PROCEDURAL AVATAR
+    // ==========================================
+    let scene, camera, renderer, clock;
+    let headGroup, bodyGroup, avatarGroup;
+    let mouthMesh = null;
+    let leftEye, rightEye;
+    let blinkTimer = 0;
+
+    function init3D() {
+        const container = document.getElementById('avatar-container');
+        if (!container) return;
+        
+        try {
+            // Scene
+            scene = new THREE.Scene();
+            
+            // Camera
+            camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(0, 0.3, 2.2);
+            camera.lookAt(0, 0.1, 0);
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0x404060, 0.6);
+            scene.add(ambientLight);
+            
+            const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            mainLight.position.set(2, 3, 3);
+            scene.add(mainLight);
+            
+            const fillLight = new THREE.DirectionalLight(0x6688cc, 0.5);
+            fillLight.position.set(-2, 1, 2);
+            scene.add(fillLight);
+            
+            const rimLight = new THREE.DirectionalLight(0x8888ff, 0.3);
+            rimLight.position.set(0, 1, -2);
+            scene.add(rimLight);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setClearColor(0x000000, 0);
+            container.appendChild(renderer.domElement);
+
+            // Build procedural avatar
+            avatarGroup = new THREE.Group();
+            buildAvatar();
+            scene.add(avatarGroup);
+
+            clock = new THREE.Clock();
+            statusText.innerText = "3D Environment Ready — Click mic to start";
+            
+            // Start animation
+            animate();
+            
+            // Handle Resize
+            window.addEventListener('resize', () => {
+                if (!container || !renderer) return;
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+            
+        } catch (err) {
+            console.error('3D Init Error:', err);
+            statusText.innerText = "Click mic to start interview";
+            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:1.2rem;"><i class="bi bi-person-circle" style="font-size:5rem;"></i></div>';
+        }
+    }
+
+    function buildAvatar() {
+        const skinColor = 0xf5c6a0;
+        const skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.6, metalness: 0.0 });
+        const hairMat = new THREE.MeshStandardMaterial({ color: 0x2c1810, roughness: 0.8 });
+        const suitMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 });
+        const shirtMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
+        const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+        const eyePupilMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.2 });
+        const lipMat = new THREE.MeshStandardMaterial({ color: 0xc4756b, roughness: 0.5 });
+        
+        // --- HEAD ---
+        headGroup = new THREE.Group();
+        headGroup.position.y = 0.75;
+        
+        // Face (slightly elongated sphere)
+        const headGeo = new THREE.SphereGeometry(0.28, 32, 32);
+        headGeo.scale(1, 1.15, 1);
+        const head = new THREE.Mesh(headGeo, skinMat);
+        headGroup.add(head);
+        
+        // Hair (top cap)
+        const hairGeo = new THREE.SphereGeometry(0.29, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.55);
+        const hair = new THREE.Mesh(hairGeo, hairMat);
+        hair.position.y = 0.03;
+        headGroup.add(hair);
+        
+        // Hair sides
+        const hairSideGeo = new THREE.BoxGeometry(0.58, 0.12, 0.18);
+        hairSideGeo.translate(0, 0.15, -0.12);
+        const hairSide = new THREE.Mesh(hairSideGeo, hairMat);
+        headGroup.add(hairSide);
+        
+        // Left Eye
+        const eyeGeo = new THREE.SphereGeometry(0.042, 16, 16);
+        leftEye = new THREE.Group();
+        const leftEyeWhite = new THREE.Mesh(eyeGeo, eyeWhiteMat);
+        leftEye.add(leftEyeWhite);
+        const pupilGeo = new THREE.SphereGeometry(0.022, 12, 12);
+        const leftPupil = new THREE.Mesh(pupilGeo, eyePupilMat);
+        leftPupil.position.z = 0.03;
+        leftEye.add(leftPupil);
+        leftEye.position.set(-0.09, 0.06, 0.22);
+        headGroup.add(leftEye);
+        
+        // Right Eye
+        rightEye = new THREE.Group();
+        const rightEyeWhite = new THREE.Mesh(eyeGeo, eyeWhiteMat);
+        rightEye.add(rightEyeWhite);
+        const rightPupil = new THREE.Mesh(pupilGeo, eyePupilMat);
+        rightPupil.position.z = 0.03;
+        rightEye.add(rightPupil);
+        rightEye.position.set(0.09, 0.06, 0.22);
+        headGroup.add(rightEye);
+        
+        // Eyebrows
+        const browGeo = new THREE.BoxGeometry(0.08, 0.012, 0.02);
+        const browMat = new THREE.MeshStandardMaterial({ color: 0x2c1810 });
+        const leftBrow = new THREE.Mesh(browGeo, browMat);
+        leftBrow.position.set(-0.09, 0.12, 0.24);
+        leftBrow.rotation.z = 0.1;
+        headGroup.add(leftBrow);
+        const rightBrow = new THREE.Mesh(browGeo, browMat);
+        rightBrow.position.set(0.09, 0.12, 0.24);
+        rightBrow.rotation.z = -0.1;
+        headGroup.add(rightBrow);
+        
+        // Nose
+        const noseGeo = new THREE.ConeGeometry(0.025, 0.06, 8);
+        noseGeo.rotateX(-Math.PI * 0.35);
+        const nose = new THREE.Mesh(noseGeo, skinMat);
+        nose.position.set(0, -0.01, 0.27);
+        headGroup.add(nose);
+        
+        // Mouth (animated)
+        const mouthGeo = new THREE.BoxGeometry(0.08, 0.015, 0.02);
+        mouthMesh = new THREE.Mesh(mouthGeo, lipMat);
+        mouthMesh.position.set(0, -0.1, 0.24);
+        headGroup.add(mouthMesh);
+        
+        // Ears
+        const earGeo = new THREE.SphereGeometry(0.04, 8, 8);
+        earGeo.scale(0.5, 1, 0.6);
+        const leftEar = new THREE.Mesh(earGeo, skinMat);
+        leftEar.position.set(-0.27, 0.02, 0);
+        headGroup.add(leftEar);
+        const rightEar = new THREE.Mesh(earGeo, skinMat);
+        rightEar.position.set(0.27, 0.02, 0);
+        headGroup.add(rightEar);
+        
+        // Neck
+        const neckGeo = new THREE.CylinderGeometry(0.08, 0.1, 0.15, 16);
+        const neck = new THREE.Mesh(neckGeo, skinMat);
+        neck.position.y = -0.4;
+        headGroup.add(neck);
+        
+        avatarGroup.add(headGroup);
+        
+        // --- BODY ---
+        bodyGroup = new THREE.Group();
+        
+        // Torso (suit jacket)
+        const torsoGeo = new THREE.CylinderGeometry(0.22, 0.28, 0.6, 16);
+        const torso = new THREE.Mesh(torsoGeo, suitMat);
+        torso.position.y = 0.0;
+        bodyGroup.add(torso);
+        
+        // Shirt collar / V-shape
+        const collarGeo = new THREE.PlaneGeometry(0.14, 0.15);
+        const collar = new THREE.Mesh(collarGeo, shirtMat);
+        collar.position.set(0, 0.2, 0.21);
+        bodyGroup.add(collar);
+        
+        // Shoulders
+        const shoulderGeo = new THREE.SphereGeometry(0.1, 12, 12);
+        const leftShoulder = new THREE.Mesh(shoulderGeo, suitMat);
+        leftShoulder.position.set(-0.28, 0.22, 0);
+        leftShoulder.scale.set(1.2, 0.8, 0.9);
+        bodyGroup.add(leftShoulder);
+        const rightShoulder = new THREE.Mesh(shoulderGeo, suitMat);
+        rightShoulder.position.set(0.28, 0.22, 0);
+        rightShoulder.scale.set(1.2, 0.8, 0.9);
+        bodyGroup.add(rightShoulder);
+        
+        // Upper Arms
+        const armGeo = new THREE.CylinderGeometry(0.055, 0.045, 0.35, 12);
+        const leftArm = new THREE.Mesh(armGeo, suitMat);
+        leftArm.position.set(-0.34, 0.0, 0);
+        leftArm.rotation.z = 0.15;
+        bodyGroup.add(leftArm);
+        const rightArm = new THREE.Mesh(armGeo, suitMat);
+        rightArm.position.set(0.34, 0.0, 0);
+        rightArm.rotation.z = -0.15;
+        bodyGroup.add(rightArm);
+        
+        avatarGroup.add(bodyGroup);
+        
+        // Center the whole avatar
+        avatarGroup.position.y = -0.3;
+    }
+
+    // Animation Loop
+    function animate() {
+        requestAnimationFrame(animate);
+        if (!clock) return;
+        
+        const delta = clock.getDelta();
+        const time = clock.getElapsedTime();
+
+        if (headGroup) {
+            // Idle head movement
+            headGroup.rotation.y = Math.sin(time * 0.4) * 0.06;
+            headGroup.rotation.x = Math.sin(time * 0.6) * 0.03;
+            headGroup.rotation.z = Math.sin(time * 0.3) * 0.02;
+        }
+        
+        if (avatarGroup) {
+            // Subtle breathing
+            avatarGroup.position.y = -0.3 + Math.sin(time * 1.2) * 0.005;
+        }
+        
+        // Blink
+        blinkTimer += delta;
+        if (leftEye && rightEye) {
+            if (blinkTimer > 3.0 + Math.random() * 2) {
+                leftEye.scale.y = 0.1;
+                rightEye.scale.y = 0.1;
+                setTimeout(() => {
+                    if (leftEye) leftEye.scale.y = 1;
+                    if (rightEye) rightEye.scale.y = 1;
+                }, 120);
+                blinkTimer = 0;
+            }
+        }
+
+        // Lip Sync
+        if (mouthMesh) {
+            if (isSpeaking) {
+                const mouthOpen = (Math.sin(time * 12) * 0.5 + 0.5) * 0.04 + 0.015;
+                mouthMesh.scale.y = 1 + mouthOpen * 8;
+                mouthMesh.scale.x = 1 - mouthOpen * 2;
+            } else {
+                mouthMesh.scale.y = THREE.MathUtils.lerp(mouthMesh.scale.y, 1, 0.1);
+                mouthMesh.scale.x = THREE.MathUtils.lerp(mouthMesh.scale.x, 1, 0.1);
+            }
+        }
+        
+        // Head nod while speaking
+        if (headGroup && isSpeaking) {
+            headGroup.rotation.x = Math.sin(time * 2.5) * 0.06;
+            headGroup.rotation.y = Math.sin(time * 1.5) * 0.04;
+        }
+
+        if (renderer && scene && camera) {
+            renderer.render(scene, camera);
+        }
+    }
+
+    // ==========================================
+    // 2. AUDIO STATE (FOR LIP SYNC)
+    // ==========================================
+    let isSpeaking = false;
+
+    // Initialize 3D on load
+    init3D();
+
+    // ==========================================
+    // 3. SPEECH RECOGNITION (INPUT)
     // ==========================================
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition;
 
     if (SpeechRecognition) {
         recognition = new SpeechRecognition();
-        recognition.continuous = true; // 🔥 KEY FIX: Don't stop on pause!
-        recognition.interimResults = true; // Show words as I speak
+        recognition.continuous = true; 
+        recognition.interimResults = true;
         recognition.lang = 'en-US';
-
-        micBtn.addEventListener('click', toggleRecording);
 
         recognition.onstart = () => {
             isRecording = true;
             updateMicUI('listening');
-            statusText.innerText = "Listening... Take your time thinking.";
-        };
-
-        recognition.onend = () => {
-            // If the browser forces a stop but we wanted to keep recording, restart it.
-            // Unless we are actively sending a message.
-            if (isRecording) {
-                try { recognition.start(); } catch(e) {}
-            } else {
-                updateMicUI('idle');
-            }
+            statusText.innerText = "Listening...";
         };
 
         recognition.onresult = (event) => {
-            // Combine all results
-            let interimTranscript = '';
-            
+            let interim = '';
+            let finalText = '';
             for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) {
-                    finalTranscript += event.results[i][0].transcript + ' ';
-                } else {
-                    interimTranscript += event.results[i][0].transcript;
-                }
+                if (event.results[i].isFinal) finalText += event.results[i][0].transcript;
+                else interim += event.results[i][0].transcript;
             }
-
-            // Update Input Box Visuals
-            userInput.value = finalTranscript + interimTranscript;
-
-            // 🔥 RESET SILENCE TIMER
-            // Every time you say a word, we reset the countdown.
-            updateMicUI('waiting'); 
-            clearTimeout(silenceTimer);
+            userInput.value = finalText || interim;
             
-            statusText.innerHTML = '<span class="text-warning fw-bold">...Waiting for 4s silence to send...</span>';
-
-            silenceTimer = setTimeout(() => {
-                // If this runs, it means you haven't spoken for 4 seconds
-                submitMessage();
-            }, SILENCE_TIMEOUT);
+            // Reset Silence Timer
+            clearTimeout(silenceTimer);
+            updateMicUI('waiting');
+            silenceTimer = setTimeout(submitMessage, SILENCE_TIMEOUT);
         };
 
         recognition.onerror = (event) => {
-            console.error("Speech Error:", event.error);
-            if(event.error !== 'no-speech') stopRecording();
+            console.error('Speech recognition error:', event.error);
+            if (event.error === 'not-allowed') {
+                statusText.innerText = "Mic permission denied — please allow microphone access";
+            } else if (event.error === 'no-speech') {
+                statusText.innerText = "No speech detected — click mic to try again";
+            } else {
+                statusText.innerText = "Mic error: " + event.error + " — click mic to retry";
+            }
+            isRecording = false;
+            updateMicUI('idle');
         };
-
+        
+        recognition.onend = () => { 
+            if(isRecording) {
+                try { recognition.start(); } catch(e) { console.warn('Recognition restart failed:', e); }
+            }
+        };
     } else {
-        micBtn.style.display = 'none';
-        statusText.innerText = "Voice input not supported.";
+        console.warn('SpeechRecognition API not available in this browser.');
     }
 
+    // Always attach mic click handler
+    micBtn.addEventListener('click', toggleRecording);
+
+    // Send button click
+    sendBtn.addEventListener('click', submitMessage);
+    // Enter key submit
+    userInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitMessage(); });
+
     // ==========================================
-    // 2. LOGIC CONTROLLERS
+    // 4. CORE LOGIC
     // ==========================================
     function toggleRecording() {
-        if (isRecording) {
-            stopRecording();
-            submitMessage(); // Send whatever we have immediately
-        } else {
-            finalTranscript = ''; // Reset buffer
-            userInput.value = '';
-            recognition.start();
+        if (interviewEnded) return;
+        if (!recognition) {
+            statusText.innerText = "Speech recognition not supported in this browser";
+            return;
         }
-    }
-
-    function stopRecording() {
-        isRecording = false;
-        clearTimeout(silenceTimer);
-        recognition.stop();
-        updateMicUI('idle');
+        if(isRecording) { 
+            isRecording = false; 
+            try { recognition.stop(); } catch(e) {}
+            clearTimeout(silenceTimer); 
+            updateMicUI('idle'); 
+            statusText.innerText = "Mic stopped — click to start again";
+        } else { 
+            try {
+                recognition.start(); 
+            } catch(e) {
+                console.error('Recognition start error:', e);
+                // If already started, stop and restart
+                try { recognition.stop(); } catch(e2) {}
+                setTimeout(() => {
+                    try { recognition.start(); } catch(e3) {
+                        statusText.innerText = "Mic error — please refresh and allow mic access";
+                    }
+                }, 200);
+            }
+        }
     }
 
     function updateMicUI(state) {
         micBtn.classList.remove('listening', 'waiting', 'btn-light');
-        if (state === 'listening') {
-            micBtn.classList.add('listening');
-        } else if (state === 'waiting') {
-            micBtn.classList.add('waiting'); // Yellow pulse (Timer active)
-        } else {
-            micBtn.classList.add('btn-light'); // Idle
-            statusText.innerText = "Click microphone to start";
-        }
+        if (state === 'listening') micBtn.classList.add('listening');
+        else if (state === 'waiting') micBtn.classList.add('waiting');
+        else { /* idle state - default mic-btn styling */ }
     }
 
-    // ==========================================
-    // 3. AI VOICE OUTPUT
-    // ==========================================
     function speakText(text) {
+        if (interviewEnded) return;
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
         
         utterance.onstart = () => {
-            statusText.innerHTML = '<span class="text-primary fw-bold">AI is speaking...</span>';
+            isSpeaking = true;
+            statusText.innerText = "AI is speaking...";
         };
-
+        
         utterance.onend = () => {
-            // Auto-restart listening after AI finishes
-            statusText.innerText = "My turn finished. Listening for you...";
-            finalTranscript = ''; 
-            userInput.value = '';
-            try { recognition.start(); } catch(e) {}
+            isSpeaking = false;
+            if (!interviewEnded) {
+                statusText.innerText = "Listening...";
+                try { if (recognition) recognition.start(); } catch(e){}
+            }
         };
-
+        
         window.speechSynthesis.speak(utterance);
     }
 
-    // ==========================================
-    // 4. SUBMIT MESSAGE
-    // ==========================================
     async function submitMessage() {
-        // Stop recording while we process
-        isRecording = false;
-        recognition.stop();
+        if (interviewEnded) return;
+        if (recognition) { isRecording = false; recognition.stop(); }
         clearTimeout(silenceTimer);
-
         const text = userInput.value.trim();
-        if (!text) return;
+        if(!text) return;
 
-        // UI Updates
         appendMessage('candidate', text);
         userInput.value = '';
-        statusText.innerText = "AI is thinking...";
-
-        const typingDiv = document.createElement('div');
-        typingDiv.className = 'message ai text-muted fst-italic';
-        typingDiv.id = 'typing-indicator';
-        typingDiv.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
-        chatBox.appendChild(typingDiv);
-        chatBox.scrollTop = chatBox.scrollHeight;
+        statusText.innerText = "Thinking...";
 
         try {
             const response = await fetch("{% url 'api_chat_interaction' %}", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token }}" },
-                body: JSON.stringify({ session_id: sessionId, message: text })
+                method: "POST", headers: {"Content-Type":"application/json", "X-CSRFToken":"{{csrf_token}}"},
+                body: JSON.stringify({session_id: sessionId, message: text})
             });
-            
             const data = await response.json();
-            if (document.getElementById('typing-indicator')) document.getElementById('typing-indicator').remove();
 
-            if (data.status === 'success') {
+            if(data.status === 'success') {
                 appendMessage('ai', data.ai_response);
-                speakText(data.ai_response); // Triggers loop on end
+                speakText(data.ai_response);
+                
+                // Auto-end interview if AI signals completion
+                if (data.interview_complete) {
+                    setTimeout(() => {
+                        interviewEnded = true;
+                        userInput.disabled = true;
+                        micBtn.disabled = true;
+                        sendBtn.disabled = true;
+                        statusText.innerText = "Interview complete — evaluating...";
+                        document.getElementById('endSessionBtn').disabled = true;
+                        
+                        // Wait for speech to finish, then auto-end
+                        const checkSpeech = setInterval(() => {
+                            if (!window.speechSynthesis.speaking) {
+                                clearInterval(checkSpeech);
+                                document.getElementById('evaluatingOverlay').classList.add('active');
+                                window.location.href = endSessionUrl;
+                            }
+                        }, 500);
+                        
+                        // Fallback: redirect after 15 seconds max
+                        setTimeout(() => {
+                            document.getElementById('evaluatingOverlay').classList.add('active');
+                            window.location.href = endSessionUrl;
+                        }, 15000);
+                    }, 1000);
+                }
+            } else {
+                statusText.innerText = "Error — try again";
             }
-        } catch (error) {
-            console.error(error);
+        } catch(err) {
+            console.error('Chat error:', err);
+            statusText.innerText = "Connection error — try again";
         }
     }
 
     function appendMessage(sender, text) {
         const div = document.createElement('div');
         div.className = `message ${sender}`;
-        div.innerHTML = `<strong>${sender === 'ai' ? '🤖 AI' : '👤 You'}:</strong><br>${text}`;
+        div.innerHTML = `<strong>${sender==='ai'?'🤖 AI':'👤 You'}:</strong><br>${text}`;
         chatBox.appendChild(div);
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    // Manual Send
-    sendBtn.addEventListener('click', submitMessage);
-    userInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') submitMessage();
-    });
+    // ==========================================
+    // 5. END SESSION LOGIC (original)
+    // ==========================================
+    function showEndSessionModal() {
+        document.getElementById('endSessionOverlay').classList.add('active');
+    }
+    
+    function closeEndSessionModal() {
+        document.getElementById('endSessionOverlay').classList.remove('active');
+    }
+    
+    async function confirmEndSession() {
+        // 1. Stop everything
+        interviewEnded = true;
+        window.speechSynthesis.cancel();
+        isSpeaking = false;
+        if (recognition) { isRecording = false; try { recognition.stop(); } catch(e){} }
+        clearTimeout(silenceTimer);
+        
+        // 2. Disable inputs
+        userInput.disabled = true;
+        micBtn.disabled = true;
+        sendBtn.disabled = true;
+        document.getElementById('endSessionBtn').disabled = true;
+        statusText.innerText = "Interview ended. Evaluating...";
+        
+        // 3. Close confirmation, show evaluating overlay
+        closeEndSessionModal();
+        document.getElementById('evaluatingOverlay').classList.add('active');
+        
+        // 4. Redirect to end session endpoint (triggers server-side evaluation)
+        window.location.href = endSessionUrl;
+    }
+
+    // Initialize Scroll
+    chatBox.scrollTop = chatBox.scrollHeight;
+</script>
+
+<!-- =========================
+     APPENDED: Timer, Camera & Recording
+     (placed after original core script)
+     ========================= -->
+<script>
+/* ======================================================
+   🚀 NEW FEATURE SECTION (Timer + Camera + Recording)
+   ====================================================== */
+
+/* ===============================
+   1️⃣ INTERVIEW TIMER
+=================================*/
+let interviewSeconds = 0;
+let timerInterval = null;
+
+function startTimer() {
+    // Prevent multiple intervals
+    if (timerInterval) return;
+    timerInterval = setInterval(() => {
+        interviewSeconds++;
+        const minutes = Math.floor(interviewSeconds / 60);
+        const seconds = interviewSeconds % 60;
+
+        const disp = document.getElementById("timerDisplay");
+        if (disp) {
+            disp.innerText = `${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+        }
+    }, 1000);
+}
+
+function stopTimer() {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+}
+
+/* Start the timer as soon as template loads */
+startTimer();
+
+
+/* ===============================
+   2️⃣ CAMERA ENABLE
+=================================*/
+let cameraStream = null;
+const cameraPreview = document.getElementById("camera-preview");
+const cameraVideo = document.getElementById("cameraVideo");
+const cameraBtn = document.getElementById("cameraToggleBtn");
+
+cameraBtn.addEventListener("click", async () => {
+    if (!cameraStream) {
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            cameraVideo.srcObject = cameraStream;
+            cameraPreview.style.display = "block";
+            cameraBtn.classList.remove("btn-outline-primary");
+            cameraBtn.classList.add("btn-success");
+        } catch (err) {
+            console.error("Camera error:", err);
+            alert("Camera permission denied or not available.");
+        }
+    } else {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+        cameraPreview.style.display = "none";
+        cameraBtn.classList.remove("btn-success");
+        cameraBtn.classList.add("btn-outline-primary");
+    }
+});
+
+
+/* ===============================
+   3️⃣ SCREEN + AUDIO RECORDING
+=================================*/
+let mediaRecorder = null;
+let recordedChunks = [];
+let screenStream = null;
+let micStreamForRecording = null;
+
+// Try to automatically start recording; if user denies permission, it will gracefully fail.
+async function startRecording() {
+    try {
+        // Ask for display (screen) with audio if available
+        screenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+            audio: true // Some browsers may or may not include system audio
+        });
+    } catch (err) {
+        console.warn("Screen capture not started:", err);
+        screenStream = null;
+    }
+
+    try {
+        // Ask for mic audio
+        micStreamForRecording = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+        console.warn("Microphone not available for recording:", err);
+        micStreamForRecording = null;
+    }
+
+    // If neither stream available, skip recording
+    if (!screenStream && !micStreamForRecording) {
+        console.warn("No media streams available; skipping recording.");
+        return;
+    }
+
+    // Combine tracks
+    const tracks = [];
+    if (screenStream) tracks.push(...screenStream.getTracks());
+    if (micStreamForRecording) tracks.push(...micStreamForRecording.getTracks());
+
+    const combined = new MediaStream(tracks);
+
+    // Choose mimeType if supported
+    const options = {};
+    if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9")) options.mimeType = "video/webm;codecs=vp9";
+    else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8")) options.mimeType = "video/webm;codecs=vp8";
+    else options.mimeType = "video/webm";
+
+    try {
+        mediaRecorder = new MediaRecorder(combined, options);
+    } catch (err) {
+        console.error("MediaRecorder init failed:", err);
+        return;
+    }
+
+    mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = () => {
+        // Stop underlying streams
+        if (screenStream) screenStream.getTracks().forEach(t => t.stop());
+        if (micStreamForRecording) micStreamForRecording.getTracks().forEach(t => t.stop());
+        screenStream = null;
+        micStreamForRecording = null;
+
+        downloadRecording();
+    };
+
+    mediaRecorder.start(1000); // collect data in 1s chunks
+    console.log("Recording started");
+}
+
+function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        try {
+            mediaRecorder.stop();
+        } catch (err) {
+            console.warn("Error stopping MediaRecorder:", err);
+        }
+    } else {
+        // If recorder never started but streams exist, stop them to free permissions
+        if (screenStream) { screenStream.getTracks().forEach(t => t.stop()); screenStream = null; }
+        if (micStreamForRecording) { micStreamForRecording.getTracks().forEach(t => t.stop()); micStreamForRecording = null; }
+    }
+}
+
+function downloadRecording() {
+    if (!recordedChunks || recordedChunks.length === 0) return;
+    const blob = new Blob(recordedChunks, { type: "video/webm" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.style.display = "none";
+    a.href = url;
+    a.download = `Interview_${sessionId}_${(new Date()).toISOString().replace(/[:.]/g,'-')}.webm`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, 100);
+
+    // clear recorded chunks
+    recordedChunks = [];
+}
+
+/* Start recording automatically (best-effort) — skip screen capture, only mic */
+// Removed auto startRecording() to avoid conflicts with SpeechRecognition mic access
+
+/* Auto-start camera on page load */
+(async function autoStartCamera() {
+    try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        cameraVideo.srcObject = cameraStream;
+        cameraPreview.style.display = "block";
+        cameraBtn.classList.remove("btn-outline-primary");
+        cameraBtn.classList.add("btn-success");
+    } catch (err) {
+        console.warn("Auto camera start failed:", err);
+    }
+})();
+
+
+/* ===============================
+   4️⃣ EXTEND END SESSION (wrap original)
+=================================*/
+(function extendConfirmEnd() {
+    // Only proceed if confirmEndSession exists
+    if (typeof confirmEndSession === 'function') {
+        const originalConfirm = confirmEndSession;
+        // Replace the global confirmEndSession with a wrapper
+        window.confirmEndSession = async function() {
+            try {
+                // Mark ended and stop UI-related processes
+                interviewEnded = true;
+                stopTimer();
+                stopRecording();
+
+                if (cameraStream) {
+                    cameraStream.getTracks().forEach(t => t.stop());
+                    cameraStream = null;
+                    const camPreview = document.getElementById('camera-preview');
+                    if (camPreview) camPreview.style.display = 'none';
+                }
+
+                // Also try to stop speech synthesis & recognition (original does this too)
+                try { window.speechSynthesis.cancel(); } catch(e) {}
+                try { if (recognition) { isRecording = false; recognition.stop(); } } catch(e) {}
+
+            } catch (err) {
+                console.warn("Error while extending end session:", err);
+            }
+
+            // Call original behavior (this will show evaluating overlay and redirect)
+            try {
+                await originalConfirm();
+            } catch (err) {
+                console.warn("Original confirmEndSession threw:", err);
+            }
+        };
+    } else {
+        // if original not defined yet (shouldn't happen) try again shortly
+        setTimeout(extendConfirmEnd, 300);
+    }
+})();
+
 </script>
 {% endblock %}

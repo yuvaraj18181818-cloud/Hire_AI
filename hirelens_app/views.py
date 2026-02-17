@@ -12,7 +12,9 @@ from .models import (
     ResumeAnalysis,
     GeneratedQuestion,
     InterviewResult,
-    CourseRecommendation
+    CourseRecommendation,
+    InterviewSession,
+    ChatMessage
 )
 
 # Import AI Services
@@ -321,11 +323,16 @@ def analysis_result(request, analysis_id):
             "similarity_score": 0.95 if is_present else 0.10 
         })
 
+    # Check for interview session data
+    session = InterviewSession.objects.filter(analysis=analysis).last()
+    
     return render(request, "hirelens_app/analysis_result.html", {
         "analysis": analysis,
         "courses": courses,
         "skills": skills_data,
-        "summary": analysis.ai_summary
+        "summary": analysis.ai_summary,
+        "session": session,
+        "candidate": analysis.candidate,
     })
 # =================================================
 # INTERVIEW PAGE
@@ -340,6 +347,39 @@ def interview(request, analysis_id):
     """
     return redirect('start_interview_session', analysis_id=analysis_id)
 
+
+# =================================================
+# END INTERVIEW SESSION (Stop + Evaluate + Redirect)
+# =================================================
+@login_required
+def end_interview_session(request, session_id):
+    """
+    Ends the interview session, triggers AI evaluation,
+    saves scores, and redirects to the analysis result page.
+    """
+    from .services.rag_service import generate_interview_feedback
+    
+    session = get_object_or_404(InterviewSession, id=session_id)
+    analysis = session.analysis
+    
+    # 1. Mark session as completed
+    session.is_completed = True
+    session.save()
+    
+    # 2. Generate AI Evaluation if not already done
+    if not analysis.interview_feedback:
+        chat_history = ChatMessage.objects.filter(session=session).order_by('timestamp')
+        
+        if chat_history.exists():
+            ai_result = generate_interview_feedback(session, chat_history)
+            
+            analysis.interview_score = ai_result.get('overall_score', 0)
+            analysis.interview_feedback = ai_result.get('overall_feedback', 'No feedback generated.')
+            analysis.detailed_breakdown = ai_result.get('breakdown', [])
+            analysis.save()
+    
+    # 3. Redirect to the analysis result page (with anchor to interview section)
+    return redirect('analysis_result', analysis_id=analysis.id)
 
 # =================================================
 # SUBMIT INTERVIEW ANSWER (AI Grading)
@@ -380,14 +420,7 @@ def improvement_plan(request, analysis_id):
     return redirect("analysis_result", analysis_id=analysis_id)
 
 
-# hirelens_app/views.py
-
-from django.http import JsonResponse
-from .models import InterviewSession, ChatMessage
 from .services.rag_service import build_rag_context, get_ai_response
-import json
-
-# ... (Keep your existing Dashboard/Upload views) ...
 
 # =================================================
 # 1. START INTERVIEW SESSION
@@ -443,10 +476,21 @@ def api_chat_interaction(request):
         # 2. Get AI Response (RAG)
         ai_text = get_ai_response(session_id, user_text)
         
-        # 3. Save AI Message
-        ChatMessage.objects.create(session=session, sender='ai', message_text=ai_text)
+        # 3. Check if interview is complete
+        interview_complete = '[INTERVIEW_COMPLETE]' in ai_text
         
-        return JsonResponse({'status': 'success', 'ai_response': ai_text})
+        # Clean the marker from the displayed text
+        clean_ai_text = ai_text.replace('[INTERVIEW_COMPLETE]', '').strip()
+        
+        # 4. Save AI Message
+        ChatMessage.objects.create(session=session, sender='ai', message_text=clean_ai_text)
+        
+        response_data = {'status': 'success', 'ai_response': clean_ai_text}
+        
+        if interview_complete:
+            response_data['interview_complete'] = True
+        
+        return JsonResponse(response_data)
         
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

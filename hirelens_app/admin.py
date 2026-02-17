@@ -4,6 +4,8 @@ from .models import (
     CompanyRequirement,
     Candidate,
     ResumeAnalysis,
+    InterviewSession,
+    ChatMessage,
     GeneratedQuestion,
     InterviewResult,
     CourseRecommendation
@@ -32,7 +34,7 @@ class CandidateAdmin(admin.ModelAdmin):
     search_fields = ("name", "email")
 
 # -----------------------------
-# RESUME ANALYSIS
+# RESUME ANALYSIS (Updated)
 # -----------------------------
 @admin.register(ResumeAnalysis)
 class ResumeAnalysisAdmin(admin.ModelAdmin):
@@ -40,18 +42,49 @@ class ResumeAnalysisAdmin(admin.ModelAdmin):
         "candidate",
         "job",
         "similarity_score",
-        "short_summary", # Custom method below
+        "interview_score",  # 🔥 NEW FIELD
+        "short_summary",
         "analysis_time"
     )
-    list_filter = ("job",)
-    search_fields = ("candidate__name",)
+    list_filter = ("job", "similarity_score", "interview_score")
+    search_fields = ("candidate__name", "job__job_title")
     
     def short_summary(self, obj):
         return obj.ai_summary[:50] + "..." if obj.ai_summary else "-"
     short_summary.short_description = "AI Summary Preview"
 
 # -----------------------------
-# NEW: AI GENERATED QUESTIONS
+# NEW: INTERVIEW SESSION (Tracks Chat Context)
+# -----------------------------
+@admin.register(InterviewSession)
+class InterviewSessionAdmin(admin.ModelAdmin):
+    list_display = ("id", "get_candidate", "get_job", "start_time", "is_completed")
+    list_filter = ("is_completed", "start_time")
+    search_fields = ("analysis__candidate__name",)
+
+    def get_candidate(self, obj):
+        return obj.analysis.candidate.name
+    get_candidate.short_description = "Candidate"
+
+    def get_job(self, obj):
+        return obj.analysis.job.job_title
+    get_job.short_description = "Job Role"
+
+# -----------------------------
+# NEW: CHAT MESSAGES (Transcript)
+# -----------------------------
+@admin.register(ChatMessage)
+class ChatMessageAdmin(admin.ModelAdmin):
+    list_display = ("session", "sender", "short_message", "timestamp")
+    list_filter = ("sender", "timestamp")
+    search_fields = ("message_text",)
+
+    def short_message(self, obj):
+        return obj.message_text[:60] + "..."
+    short_message.short_description = "Message Content"
+
+# -----------------------------
+# LEGACY / EXTRA MODELS
 # -----------------------------
 @admin.register(GeneratedQuestion)
 class GeneratedQuestionAdmin(admin.ModelAdmin):
@@ -63,26 +96,17 @@ class GeneratedQuestionAdmin(admin.ModelAdmin):
         return obj.question_text[:50] + "..."
     short_question.short_description = "Question"
 
-# -----------------------------
-# INTERVIEW RESULTS (Updated)
-# -----------------------------
 @admin.register(InterviewResult)
 class InterviewResultAdmin(admin.ModelAdmin):
-    # Updated to reflect new fields (question link, ai_score, etc.)
-    list_display = ("get_candidate", "get_question_topic", "ai_score", "is_correct", "submitted_at")
+    list_display = ("get_candidate", "ai_score", "is_correct", "submitted_at")
     list_filter = ("is_correct", "ai_score")
     
     def get_candidate(self, obj):
-        return obj.question.analysis.candidate.name
+        if obj.question:
+            return obj.question.analysis.candidate.name
+        return "Unknown"
     get_candidate.short_description = "Candidate"
-    
-    def get_question_topic(self, obj):
-        return obj.question.topic
-    get_question_topic.short_description = "Topic"
 
-# -----------------------------
-# COURSE RECOMMENDATIONS
-# -----------------------------
 @admin.register(CourseRecommendation)
 class CourseRecommendationAdmin(admin.ModelAdmin):
     list_display = ("analysis", "skill_name", "course_name")

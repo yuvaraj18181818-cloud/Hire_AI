@@ -59,5 +59,6 @@ urlpatterns = [
 
      path('interview/start/<int:analysis_id>/', views.start_interview_session, name='start_interview_session'),
      path('interview/bot/<int:session_id>/', views.interview_bot, name='interview_bot'),
+     path('interview/end/<int:session_id>/', views.end_interview_session, name='end_interview_session'),
      path('api/chat/', views.api_chat_interaction, name='api_chat_interaction'),
 ]

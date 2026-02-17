@@ -31,13 +31,37 @@ LOGOUT_REDIRECT_URL = 'login'
 
 # Redirect to the HR dashboard after logging in
 LOGIN_REDIRECT_URL = 'hr_dashboard'
-# hirelens/settings.py
+# import os
+# from pathlib import Path
+# from dotenv import load_dotenv
+
+# # Build paths inside the project like this: BASE_DIR / 'subdir'.
+# BASE_DIR = Path(__file__).resolve().parent.parent
+
+# # Load environment variables from .env file
+# # We explicitly point to the .env file to be safe
+# env_path = BASE_DIR / '.env'
+# load_dotenv(dotenv_path=env_path)
+
+# # Retrieve the key
+# OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# # Debugging check (prints to console when server starts)
+# if not OPENAI_API_KEY:
+#     print("⚠️  WARNING: OPENAI_API_KEY is missing from .env file!")
+# else:
+#     print(f"✅ API Key loaded successfully: {OPENAI_API_KEY[:5]}...*******")
+
 import os
 from dotenv import load_dotenv
 
-load_dotenv() # Loads the .env file
+load_dotenv()
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+
+if not GEMINI_API_KEY:
+    print("⚠️ WARNING: GEMINI_API_KEY is missing.")
+    
 # Application definition
 
 INSTALLED_APPS = [
