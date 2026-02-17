@@ -1,2 +1,5 @@
-Django
+django
 openai
+gunicorn
+dotenv
+PyPDF2
